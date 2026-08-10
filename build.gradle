@@ -1,0 +1,68 @@
+plugins {
+	id 'java'
+}
+
+repositories {
+	mavenLocal()
+	maven {
+		url = 'https://repo.runelite.net'
+	}
+	mavenCentral()
+}
+
+def runeLiteVersion = 'latest.release'
+def pluginMainClass = 'com.bluelog.BlueLogPluginTest'
+
+dependencies {
+	compileOnly group: 'net.runelite', name: 'client', version: runeLiteVersion
+
+	compileOnly 'org.projectlombok:lombok:1.18.30'
+	annotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+	testImplementation 'junit:junit:4.12'
+	testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
+	testImplementation group: 'net.runelite', name: 'jshell', version: runeLiteVersion
+}
+
+group = 'com.bluelog'
+version = '1.0.0'
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	options.release.set(11)
+}
+
+// Launches a RuneLite client with this plugin loaded, without needing an IDE.
+tasks.register('run', JavaExec) {
+	group = 'application'
+	description = 'Runs a RuneLite client with Blue Log loaded'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass.set(pluginMainClass)
+	// RuneLite refuses to load a built-in plugin without assertions enabled.
+	jvmArgs('-ea')
+	args('--developer-mode', '--debug')
+}
+
+// Dev helper: prints the real constants of a class on the compile classpath, so widget ids can be
+// read off the resolved RuneLite jar rather than guessed at. Worth keeping around.
+// Quote the -P arguments: gradle is a .bat here, so the shell splits unquoted values at the dots.
+//   gradle dumpFields
+//   gradle dumpFields "-Ptarget=net.runelite.api.ScriptID" "-Pfilter=collection"
+tasks.register('dumpFields') {
+	def classpath = configurations.compileClasspath
+	def target = project.findProperty('target') ?: 'net.runelite.api.gameval.InterfaceID$Collection'
+	def filter = project.findProperty('filter')
+	doLast {
+		def loader = new URLClassLoader(classpath.files.collect { it.toURI().toURL() } as URL[])
+		def clazz = loader.loadClass(target as String)
+		def needle = filter?.toString()?.toLowerCase()
+		println "--- ${clazz.name} ---"
+		clazz.declaredFields.each { field ->
+			if (needle && !field.name.toLowerCase().contains(needle)) {
+				return
+			}
+			field.setAccessible(true)
+			println "${field.name} = ${field.get(null)}"
+		}
+	}
+}
