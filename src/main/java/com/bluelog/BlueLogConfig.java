@@ -52,8 +52,9 @@ public interface BlueLogConfig extends Config
 	@ConfigItem(
 		keyName = "allowedItems",
 		name = "Allowed missing items",
-		description = "One item name per line (commas also work). A section turns blue when every item you are still"
-			+ " missing from it appears in this list. Names are matched exactly, ignoring case.",
+		description = "Comma separated item names (newlines also work). A section turns blue when every item you are"
+			+ " still missing from it appears in this list. Names are matched exactly, ignoring case. You can also"
+			+ " right click an item in the collection log to add or remove it here.",
 		position = 1,
 		section = itemsSection
 	)

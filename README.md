@@ -43,7 +43,7 @@ The cache is stored against your RuneLite RuneScape profile, so each character h
 
 | Setting | What it does |
 | --- | --- |
-| **Allowed missing items** | The list of item names, one per line (commas work too). |
+| **Allowed missing items** | The list of item names, comma separated (newlines work too). |
 | **Ignore all pets** | Adds every pet you are still missing to the list. See below. |
 | **Ignore all jars** | Treats every boss jar as allowed. See below. |
 | **Near-complete colour** | Colour for a section that is only missing listed items. Default blue. |
@@ -51,6 +51,13 @@ The cache is stored against your RuneLite RuneScape profile, so each character h
 | **Unscanned colour** | Colour used for those. Default grey. |
 
 Completed sections are never repainted, so they stay green.
+
+### Right click to ignore
+
+Right clicking an item in the collection log offers **Ignore this item** or **Un-ignore this item**,
+which adds or removes that item from the list without opening the settings panel. The option always
+reflects and edits the hand written list, not the presets — a jar covered by **Ignore all jars** is
+not in the text box, so it still offers "Ignore this item".
 
 Inside the open section, any item you have not obtained that is on your allowed list gets a small
 blue dot in its bottom left corner, in the same colour, so you can see at a glance which items are

@@ -42,15 +42,20 @@ import java.util.function.Predicate;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.MenuAction;
+import net.runelite.api.MenuEntry;
 import net.runelite.api.ScriptID;
+import net.runelite.api.events.MenuOpened;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.ExternalPluginsChanged;
 import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
@@ -127,6 +132,9 @@ public class BlueLogPlugin extends Plugin
 	private Gson gson;
 
 	@Inject
+	private EventBus eventBus;
+
+	@Inject
 	private OverlayManager overlayManager;
 
 	@Inject
@@ -188,6 +196,101 @@ public class BlueLogPlugin extends Plugin
 				recolourList();
 			}
 		});
+	}
+
+	@Subscribe
+	public void onMenuOpened(MenuOpened event)
+	{
+		for (MenuEntry entry : event.getMenuEntries())
+		{
+			Widget slot = entry.getWidget();
+			if (slot == null || !isCollectionLogSlot(slot) || slot.getItemId() <= 0)
+			{
+				continue;
+			}
+
+			addIgnoreOption(itemName(slot, slot.getItemId()));
+			return;
+		}
+	}
+
+	/** Dynamic children report their parent as their id, so accept either form. */
+	private static boolean isCollectionLogSlot(Widget slot)
+	{
+		return slot.getId() == InterfaceID.Collection.ITEMS_CONTENTS
+			|| slot.getParentId() == InterfaceID.Collection.ITEMS_CONTENTS;
+	}
+
+	/**
+	 * Adds an entry that toggles the item in the config text box. Presets are deliberately not
+	 * consulted: this option edits the hand written list, which is the only part it can change.
+	 */
+	private void addIgnoreOption(String itemName)
+	{
+		boolean listed = containsIgnoringCase(configuredItems(), itemName);
+
+		client.getMenu()
+			.createMenuEntry(-1)
+			.setOption(listed ? "Un-ignore this item" : "Ignore this item")
+			.setTarget("<col=ff9040>" + itemName + "</col>")
+			.setType(MenuAction.RUNELITE)
+			.onClick(e -> toggleConfiguredItem(itemName));
+	}
+
+	private void toggleConfiguredItem(String itemName)
+	{
+		List<String> items = configuredItems();
+
+		if (!items.removeIf(existing -> existing.equalsIgnoreCase(itemName)))
+		{
+			items.add(itemName);
+		}
+
+		// Writing the config fires ConfigChanged, which rebuilds the allowed set and repaints.
+		configManager.setConfiguration(BlueLogConfig.GROUP, "allowedItems", String.join(", ", items));
+
+		// RuneLite's config panel rebuilds on PluginChanged, ExternalPluginsChanged and
+		// ProfileChanged, but never on ConfigChanged, so an open settings panel would keep showing
+		// the old text and write it back over this change when the field next loses focus.
+		// ExternalPluginsChanged is the narrowest of the three that forces a rebuild: it is only
+		// observed by the config and plugin list panels, whereas ProfileChanged would make a couple
+		// of dozen plugins reload their state.
+		eventBus.post(new ExternalPluginsChanged());
+	}
+
+	/** The text box contents as individual names, with the user's own capitalisation preserved. */
+	private List<String> configuredItems()
+	{
+		List<String> items = new ArrayList<>();
+		String raw = config.allowedItems();
+		if (raw == null)
+		{
+			return items;
+		}
+
+		for (String part : raw.split("[,\\r\\n]"))
+		{
+			String cleaned = Text.removeTags(part).trim();
+			if (!cleaned.isEmpty())
+			{
+				items.add(cleaned);
+			}
+		}
+
+		return items;
+	}
+
+	private static boolean containsIgnoringCase(List<String> items, String name)
+	{
+		for (String item : items)
+		{
+			if (item.equalsIgnoreCase(name))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	@Subscribe
