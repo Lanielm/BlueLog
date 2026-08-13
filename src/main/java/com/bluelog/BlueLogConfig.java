@@ -76,6 +76,19 @@ public interface BlueLogConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "ignoreAllJars",
+		name = "Ignore all jars",
+		description = "Treats every boss jar as an allowed item. Matches any item named \"Jar of ...\", so jars"
+			+ " added to the game in future are covered automatically.",
+		position = 3,
+		section = itemsSection
+	)
+	default boolean ignoreAllJars()
+	{
+		return false;
+	}
+
+	@ConfigItem(
 		keyName = "nearCompleteColor",
 		name = "Near-complete colour",
 		description = "Colour used for a section whose only missing items are in your list",

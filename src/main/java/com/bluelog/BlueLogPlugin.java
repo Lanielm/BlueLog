@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -97,6 +98,12 @@ public class BlueLogPlugin extends Plugin
 	 */
 	private static final String ALL_PETS_ENTRY = "All Pets";
 
+	/**
+	 * Every boss jar in the game is named "Jar of ...", so the jars preset matches on the prefix
+	 * rather than a fixed list that would need updating whenever a new one is released.
+	 */
+	private static final String JAR_PREFIX = "jar of ";
+
 	private static final Type CACHE_TYPE = new TypeToken<HashMap<String, PageSnapshot>>()
 	{
 	}.getType();
@@ -129,10 +136,10 @@ public class BlueLogPlugin extends Plugin
 	private final Map<String, PageSnapshot> pages = new HashMap<>();
 
 	/**
-	 * Item names the user is happy to still be missing, lowercase. Combines the config text box
-	 * with whichever preset lists are switched on.
+	 * Tests whether the user is happy to still be missing a given item, by lowercase name. Combines
+	 * the config text box with whichever preset lists are switched on.
 	 */
-	private Set<String> allowedItems = Collections.emptySet();
+	private Predicate<String> allowedItem = name -> false;
 
 	@Override
 	protected void startUp()
@@ -149,7 +156,7 @@ public class BlueLogPlugin extends Plugin
 	{
 		overlayManager.remove(overlay);
 		pages.clear();
-		allowedItems = Collections.emptySet();
+		allowedItem = name -> false;
 	}
 
 	@Provides
@@ -329,7 +336,7 @@ public class BlueLogPlugin extends Plugin
 						colour = unscannedColor;
 					}
 				}
-				else if (snapshot.isOnlyMissing(allowedItems))
+				else if (snapshot.isOnlyMissing(allowedItem))
 				{
 					colour = nearCompleteColor;
 				}
@@ -421,12 +428,7 @@ public class BlueLogPlugin extends Plugin
 	 */
 	boolean isAllowedItem(Widget slot)
 	{
-		if (allowedItems.isEmpty())
-		{
-			return false;
-		}
-
-		return allowedItems.contains(itemName(slot, slot.getItemId()).toLowerCase(Locale.ROOT));
+		return allowedItem.test(itemName(slot, slot.getItemId()).toLowerCase(Locale.ROOT));
 	}
 
 	/**
@@ -435,14 +437,15 @@ public class BlueLogPlugin extends Plugin
 	 */
 	private void refreshAllowedItems()
 	{
-		Set<String> allowed = new LinkedHashSet<>(parseItemList(config.allowedItems()));
+		Set<String> names = new LinkedHashSet<>(parseItemList(config.allowedItems()));
 
 		if (config.ignoreAllPets())
 		{
-			allowed.addAll(missingItemsOf(ALL_PETS_ENTRY));
+			names.addAll(missingItemsOf(ALL_PETS_ENTRY));
 		}
 
-		allowedItems = allowed;
+		boolean jars = config.ignoreAllJars();
+		allowedItem = name -> names.contains(name) || (jars && name.startsWith(JAR_PREFIX));
 	}
 
 	/**

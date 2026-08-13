@@ -45,6 +45,7 @@ The cache is stored against your RuneLite RuneScape profile, so each character h
 | --- | --- |
 | **Allowed missing items** | The list of item names, one per line (commas work too). |
 | **Ignore all pets** | Adds every pet you are still missing to the list. See below. |
+| **Ignore all jars** | Treats every boss jar as allowed. See below. |
 | **Near-complete colour** | Colour for a section that is only missing listed items. Default blue. |
 | **Mark unscanned sections** | Colour sections never opened on this character. Default off. |
 | **Unscanned colour** | Colour used for those. Default grey. |
@@ -66,6 +67,11 @@ preset has nothing to read and does nothing.
 
 Note that this also turns the All Pets entry itself blue, since by definition everything it is
 missing is a pet.
+
+**Ignore all jars** works differently, because there is no "All Jars" entry to read from. Every
+boss jar in the game is named `Jar of ...` — `Jar of dirt`, `Jar of swamp`, `Jar of congealed
+blood` and so on — so the preset matches that prefix instead of carrying a list. New jars are
+covered the day they are released, and it needs no page visit to work.
 
 ## Building
 

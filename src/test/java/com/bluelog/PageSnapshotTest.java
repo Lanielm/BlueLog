@@ -27,6 +27,7 @@ package com.bluelog;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
+import java.util.function.Predicate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -39,42 +40,59 @@ public class PageSnapshotTest
 		return new PageSnapshot("Test Page", Arrays.asList(missing), 10, 0L);
 	}
 
+	/** Mirrors how the plugin builds its allowed test from the config text box alone. */
+	private static Predicate<String> allowing(String configBox)
+	{
+		return BlueLogPlugin.parseItemList(configBox)::contains;
+	}
+
 	@Test
 	public void completePageIsNeverHighlighted()
 	{
 		assertTrue(page().isComplete());
-		assertFalse(page().isOnlyMissing(BlueLogPlugin.parseItemList("Twisted bow")));
+		assertFalse(page().isOnlyMissing(allowing("Twisted bow")));
 	}
 
 	@Test
 	public void singleAllowedMissingItemIsHighlighted()
 	{
-		assertTrue(page("Twisted bow").isOnlyMissing(BlueLogPlugin.parseItemList("Twisted bow")));
+		assertTrue(page("Twisted bow").isOnlyMissing(allowing("Twisted bow")));
 	}
 
 	@Test
 	public void matchingIgnoresCaseAndSurroundingSpace()
 	{
-		assertTrue(page("Twisted bow").isOnlyMissing(BlueLogPlugin.parseItemList("  TWISTED BOW  ")));
+		assertTrue(page("Twisted bow").isOnlyMissing(allowing("  TWISTED BOW  ")));
 	}
 
 	@Test
 	public void unlistedMissingItemBlocksHighlight()
 	{
-		assertFalse(page("Twisted bow", "Elder maul").isOnlyMissing(BlueLogPlugin.parseItemList("Twisted bow")));
+		assertFalse(page("Twisted bow", "Elder maul").isOnlyMissing(allowing("Twisted bow")));
 	}
 
 	@Test
 	public void everyMissingItemListedIsHighlighted()
 	{
 		Set<String> allowed = BlueLogPlugin.parseItemList("Twisted bow\nElder maul");
-		assertTrue(page("Twisted bow", "Elder maul").isOnlyMissing(allowed));
+		assertTrue(page("Twisted bow", "Elder maul").isOnlyMissing(allowed::contains));
 	}
 
 	@Test
 	public void emptyListHighlightsNothing()
 	{
-		assertFalse(page("Twisted bow").isOnlyMissing(Collections.emptySet()));
+		assertFalse(page("Twisted bow").isOnlyMissing(Collections.<String>emptySet()::contains));
+	}
+
+	@Test
+	public void jarPresetMatchesEveryJarByPrefix()
+	{
+		Predicate<String> jars = name -> name.startsWith("jar of ");
+
+		assertTrue(page("Jar of dirt").isOnlyMissing(jars));
+		assertTrue(page("Jar of swamp", "Jar of congealed blood").isOnlyMissing(jars));
+		assertFalse(page("Jar of dirt", "Twisted bow").isOnlyMissing(jars));
+		assertFalse(page("Jar generator").isOnlyMissing(jars));
 	}
 
 	@Test

@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * What we learned about a single collection log section the last time it was open.
@@ -69,19 +69,19 @@ class PageSnapshot
 	}
 
 	/**
-	 * True when the player is only missing items the user has explicitly allowed, and is
-	 * genuinely still missing at least one of them.
+	 * True when the player is only missing items the user has allowed, and is genuinely still
+	 * missing at least one of them. The predicate is given lowercase item names.
 	 */
-	boolean isOnlyMissing(Set<String> allowedLowercase)
+	boolean isOnlyMissing(Predicate<String> allowed)
 	{
-		if (isComplete() || allowedLowercase.isEmpty())
+		if (isComplete())
 		{
 			return false;
 		}
 
 		for (String item : missing)
 		{
-			if (!allowedLowercase.contains(item.toLowerCase(Locale.ROOT)))
+			if (!allowed.test(item.toLowerCase(Locale.ROOT)))
 			{
 				return false;
 			}
