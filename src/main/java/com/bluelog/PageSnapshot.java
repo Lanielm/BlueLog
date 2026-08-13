@@ -26,7 +26,6 @@ package com.bluelog;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Predicate;
 
@@ -81,7 +80,8 @@ class PageSnapshot
 
 		for (String item : missing)
 		{
-			if (!ignored.test(item.toLowerCase(Locale.ROOT)))
+			// Normalised, so a page cached before the members suffix was stripped still matches.
+			if (!ignored.test(BlueLogPlugin.normalisedName(item)))
 			{
 				return false;
 			}

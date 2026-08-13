@@ -104,6 +104,33 @@ public class PageSnapshotTest
 	}
 
 	@Test
+	public void membersSuffixIsStrippedFromTheConfigBox()
+	{
+		assertEquals(
+			Collections.singletonList("unsired"),
+			new java.util.ArrayList<>(BlueLogPlugin.parseItemList("Unsired (Members)")));
+	}
+
+	@Test
+	public void membersSuffixIsIgnoredWhenMatching()
+	{
+		// Free world log entry, list written on members.
+		assertTrue(page("Unsired (Members)").isOnlyMissing(ignoring("Unsired")));
+
+		// Members log entry, list written on a free world.
+		assertTrue(page("Unsired").isOnlyMissing(ignoring("Unsired (Members)")));
+	}
+
+	@Test
+	public void stripMembersSuffixKeepsCapitalisationAndInnerBrackets()
+	{
+		assertEquals("Unsired", BlueLogPlugin.stripMembersSuffix("Unsired (Members)"));
+		assertEquals("Unsired", BlueLogPlugin.stripMembersSuffix("Unsired"));
+		assertEquals("Ring of 3rd age", BlueLogPlugin.stripMembersSuffix("Ring of 3rd age"));
+		assertEquals("Bucket (Members) of sand", BlueLogPlugin.stripMembersSuffix("Bucket (Members) of sand"));
+	}
+
+	@Test
 	public void blankInputParsesToEmptySet()
 	{
 		assertTrue(BlueLogPlugin.parseItemList("   ").isEmpty());

@@ -19,6 +19,10 @@ items is fine — a section turns blue when all of its remaining items are cover
 
 Matching is on the exact item name, ignoring case and surrounding whitespace.
 
+On a free world the game renders members-only items as `Unsired (Members)`. That suffix is display
+decoration, not part of the name, so it is stripped: the list stores `Unsired`, and a list written
+on either account type matches on the other.
+
 ## Important limitation, please read
 
 **The client is only sent item data for the collection log page you are currently looking at.**
@@ -54,8 +58,8 @@ Completed sections are never repainted, so they stay green.
 
 ### Right click to ignore
 
-Right clicking an item in the collection log offers **Ignore this item** or **Un-ignore this item**,
-which adds or removes that item from the list without opening the settings panel. The option always
+Right clicking an item in the collection log offers **Ignore item** or **Unignore item**, which adds
+or removes that item from the list without opening the settings panel. The option always
 reflects and edits the hand written list, not the presets — a jar covered by **Ignore all jars** is
 not in the text box, so it still offers "Ignore this item".
 

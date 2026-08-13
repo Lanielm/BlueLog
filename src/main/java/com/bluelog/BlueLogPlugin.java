@@ -39,6 +39,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -108,6 +109,13 @@ public class BlueLogPlugin extends Plugin
 	 * rather than a fixed list that would need updating whenever a new one is released.
 	 */
 	private static final String JAR_PREFIX = "jar of ";
+
+	/**
+	 * On free worlds the game renders members-only items as "Unsired (Members)". The suffix is a
+	 * display decoration rather than part of the item name, so it is stripped everywhere: the text
+	 * box stays readable, and a list written on a members account still matches on a free one.
+	 */
+	private static final Pattern MEMBERS_SUFFIX = Pattern.compile("\\s*\\(members\\)$", Pattern.CASE_INSENSITIVE);
 
 	private static final Type CACHE_TYPE = new TypeToken<HashMap<String, PageSnapshot>>()
 	{
@@ -231,7 +239,7 @@ public class BlueLogPlugin extends Plugin
 
 		client.getMenu()
 			.createMenuEntry(-1)
-			.setOption(listed ? "Un-ignore this item" : "Ignore this item")
+			.setOption(listed ? "Unignore item" : "Ignore item")
 			.setTarget("<col=ff9040>" + itemName + "</col>")
 			.setType(MenuAction.RUNELITE)
 			.onClick(e -> toggleConfiguredItem(itemName));
@@ -241,7 +249,9 @@ public class BlueLogPlugin extends Plugin
 	{
 		List<String> items = configuredItems();
 
-		if (!items.removeIf(existing -> existing.equalsIgnoreCase(itemName)))
+		// Compare normalised so a legacy entry saved as "Unsired (Members)" is still removed.
+		String target = normalisedName(itemName);
+		if (!items.removeIf(existing -> normalisedName(existing).equals(target)))
 		{
 			items.add(itemName);
 		}
@@ -282,9 +292,10 @@ public class BlueLogPlugin extends Plugin
 
 	private static boolean containsIgnoringCase(List<String> items, String name)
 	{
+		String target = normalisedName(name);
 		for (String item : items)
 		{
-			if (item.equalsIgnoreCase(name))
+			if (normalisedName(item).equals(target))
 			{
 				return true;
 			}
@@ -516,7 +527,7 @@ public class BlueLogPlugin extends Plugin
 
 	private String itemName(Widget slot, int itemId)
 	{
-		String name = Text.removeTags(Text.sanitize(slot.getName())).trim();
+		String name = stripMembersSuffix(Text.removeTags(Text.sanitize(slot.getName())));
 		if (!name.isEmpty())
 		{
 			return name;
@@ -531,7 +542,7 @@ public class BlueLogPlugin extends Plugin
 	 */
 	boolean isIgnoredItem(Widget slot)
 	{
-		return ignoredItem.test(itemName(slot, slot.getItemId()).toLowerCase(Locale.ROOT));
+		return ignoredItem.test(normalisedName(itemName(slot, slot.getItemId())));
 	}
 
 	/**
@@ -566,7 +577,7 @@ public class BlueLogPlugin extends Plugin
 		Set<String> items = new LinkedHashSet<>();
 		for (String item : snapshot.missing)
 		{
-			items.add(item.toLowerCase(Locale.ROOT));
+			items.add(normalisedName(item));
 		}
 
 		return items;
@@ -583,7 +594,7 @@ public class BlueLogPlugin extends Plugin
 		Set<String> items = new LinkedHashSet<>();
 		for (String part : raw.split("[,\\r\\n]"))
 		{
-			String cleaned = Text.removeTags(part).trim().toLowerCase(Locale.ROOT);
+			String cleaned = normalisedName(Text.removeTags(part));
 			if (!cleaned.isEmpty())
 			{
 				items.add(cleaned);
@@ -591,6 +602,18 @@ public class BlueLogPlugin extends Plugin
 		}
 
 		return items;
+	}
+
+	/** An item name reduced to its comparable form: no members suffix, no case, no padding. */
+	static String normalisedName(String name)
+	{
+		return stripMembersSuffix(name).toLowerCase(Locale.ROOT);
+	}
+
+	/** An item name as it should be displayed and stored, keeping its original capitalisation. */
+	static String stripMembersSuffix(String name)
+	{
+		return MEMBERS_SUFFIX.matcher(name.trim()).replaceFirst("").trim();
 	}
 
 	private static String key(String pageName)
