@@ -40,8 +40,8 @@ public class PageSnapshotTest
 		return new PageSnapshot("Test Page", Arrays.asList(missing), 10, 0L);
 	}
 
-	/** Mirrors how the plugin builds its allowed test from the config text box alone. */
-	private static Predicate<String> allowing(String configBox)
+	/** Mirrors how the plugin builds its ignored test from the config text box alone. */
+	private static Predicate<String> ignoring(String configBox)
 	{
 		return BlueLogPlugin.parseItemList(configBox)::contains;
 	}
@@ -50,32 +50,32 @@ public class PageSnapshotTest
 	public void completePageIsNeverHighlighted()
 	{
 		assertTrue(page().isComplete());
-		assertFalse(page().isOnlyMissing(allowing("Twisted bow")));
+		assertFalse(page().isOnlyMissing(ignoring("Twisted bow")));
 	}
 
 	@Test
-	public void singleAllowedMissingItemIsHighlighted()
+	public void singleIgnoredMissingItemIsHighlighted()
 	{
-		assertTrue(page("Twisted bow").isOnlyMissing(allowing("Twisted bow")));
+		assertTrue(page("Twisted bow").isOnlyMissing(ignoring("Twisted bow")));
 	}
 
 	@Test
 	public void matchingIgnoresCaseAndSurroundingSpace()
 	{
-		assertTrue(page("Twisted bow").isOnlyMissing(allowing("  TWISTED BOW  ")));
+		assertTrue(page("Twisted bow").isOnlyMissing(ignoring("  TWISTED BOW  ")));
 	}
 
 	@Test
 	public void unlistedMissingItemBlocksHighlight()
 	{
-		assertFalse(page("Twisted bow", "Elder maul").isOnlyMissing(allowing("Twisted bow")));
+		assertFalse(page("Twisted bow", "Elder maul").isOnlyMissing(ignoring("Twisted bow")));
 	}
 
 	@Test
 	public void everyMissingItemListedIsHighlighted()
 	{
-		Set<String> allowed = BlueLogPlugin.parseItemList("Twisted bow\nElder maul");
-		assertTrue(page("Twisted bow", "Elder maul").isOnlyMissing(allowed::contains));
+		Set<String> ignored = BlueLogPlugin.parseItemList("Twisted bow\nElder maul");
+		assertTrue(page("Twisted bow", "Elder maul").isOnlyMissing(ignored::contains));
 	}
 
 	@Test

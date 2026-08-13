@@ -39,8 +39,8 @@ import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 
 /**
- * Marks the item slots of the open collection log section that the user has allowed to be missing,
- * so it is obvious which items are the reason a section counts as near complete.
+ * Marks the item slots of the open collection log section holding ignored items, so it is obvious
+ * which items are the reason a section counts as near complete.
  */
 class BlueLogOverlay extends Overlay
 {
@@ -92,7 +92,7 @@ class BlueLogOverlay extends Overlay
 				continue;
 			}
 
-			if (!plugin.isAllowedItem(slot))
+			if (!plugin.isIgnoredItem(slot))
 			{
 				continue;
 			}

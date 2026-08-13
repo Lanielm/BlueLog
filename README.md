@@ -41,14 +41,14 @@ The cache is stored against your RuneLite RuneScape profile, so each character h
 
 ## Configuration
 
-| Setting | What it does |
-| --- | --- |
-| **Allowed missing items** | The list of item names, comma separated (newlines work too). |
-| **Ignore all pets** | Adds every pet you are still missing to the list. See below. |
-| **Ignore all jars** | Treats every boss jar as allowed. See below. |
-| **Near-complete colour** | Colour for a section that is only missing listed items. Default blue. |
-| **Mark unscanned sections** | Colour sections never opened on this character. Default off. |
-| **Unscanned colour** | Colour used for those. Default grey. |
+| Section | Setting | What it does |
+| --- | --- | --- |
+| Items | **Ignored items** | The list of item names, comma separated (newlines work too). |
+| Items | **Ignore all pets** | Adds every pet you are still missing to the list. See below. |
+| Items | **Ignore all jars** | Treats every boss jar as ignored. See below. |
+| Colours | **Near-complete colour** | Colour for a section that is only missing ignored items. Default blue. |
+| Debug | **Mark unscanned sections** | Colour sections never opened on this character. Default off. |
+| Debug | **Unscanned colour** | Colour used for those. Default grey. |
 
 Completed sections are never repainted, so they stay green.
 
@@ -59,14 +59,14 @@ which adds or removes that item from the list without opening the settings panel
 reflects and edits the hand written list, not the presets — a jar covered by **Ignore all jars** is
 not in the text box, so it still offers "Ignore this item".
 
-Inside the open section, any item you have not obtained that is on your allowed list gets a small
+Inside the open section, any item you have not obtained that is ignored gets a small
 blue dot in its bottom left corner, in the same colour, so you can see at a glance which items are
 the reason a section counts as near complete. Items you already own are never marked.
 
 ### Preset lists
 
 **Ignore all pets** is a preset: rather than shipping a hardcoded list of pet names, it reads the
-items you are missing from your own **All Pets** entry and adds them to the allowed list. That way
+items you are missing from your own **All Pets** entry and adds them to the ignored list. That way
 it stays correct when new pets are added to the game, and the names always match the game exactly.
 
 The catch is the same one as everywhere else in this plugin: open the All Pets page once, or the

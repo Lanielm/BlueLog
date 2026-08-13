@@ -35,9 +35,14 @@ public interface BlueLogConfig extends Config
 {
 	String GROUP = "bluelog";
 
+	/**
+	 * Kept as "allowedItems" through the rename to "Ignored items" so existing saved lists survive.
+	 */
+	String IGNORED_ITEMS_KEY = "allowedItems";
+
 	@ConfigSection(
 		name = "Items",
-		description = "The items that are allowed to be missing",
+		description = "The items you are happy to be missing",
 		position = 0
 	)
 	String itemsSection = "itemsSection";
@@ -49,16 +54,24 @@ public interface BlueLogConfig extends Config
 	)
 	String coloursSection = "coloursSection";
 
+	@ConfigSection(
+		name = "Debug",
+		description = "Diagnosing which sections the plugin has data for",
+		position = 20,
+		closedByDefault = true
+	)
+	String debugSection = "debugSection";
+
 	@ConfigItem(
-		keyName = "allowedItems",
-		name = "Allowed missing items",
+		keyName = IGNORED_ITEMS_KEY,
+		name = "Ignored items",
 		description = "Comma separated item names (newlines also work). A section turns blue when every item you are"
 			+ " still missing from it appears in this list. Names are matched exactly, ignoring case. You can also"
 			+ " right click an item in the collection log to add or remove it here.",
 		position = 1,
 		section = itemsSection
 	)
-	default String allowedItems()
+	default String ignoredItems()
 	{
 		return "";
 	}
@@ -79,7 +92,7 @@ public interface BlueLogConfig extends Config
 	@ConfigItem(
 		keyName = "ignoreAllJars",
 		name = "Ignore all jars",
-		description = "Treats every boss jar as an allowed item. Matches any item named \"Jar of ...\", so jars"
+		description = "Treats every boss jar as ignored. Matches any item named \"Jar of ...\", so jars"
 			+ " added to the game in future are covered automatically.",
 		position = 3,
 		section = itemsSection
@@ -106,8 +119,8 @@ public interface BlueLogConfig extends Config
 		name = "Mark unscanned sections",
 		description = "Colour sections that have never been opened on this account. The game only sends item data for"
 			+ " the page you are looking at, so a section cannot be judged until you have opened it at least once.",
-		position = 12,
-		section = coloursSection
+		position = 21,
+		section = debugSection
 	)
 	default boolean highlightUnscanned()
 	{
@@ -118,8 +131,8 @@ public interface BlueLogConfig extends Config
 		keyName = "unscannedColor",
 		name = "Unscanned colour",
 		description = "Colour used for sections that have never been opened on this account",
-		position = 13,
-		section = coloursSection
+		position = 22,
+		section = debugSection
 	)
 	default Color unscannedColor()
 	{

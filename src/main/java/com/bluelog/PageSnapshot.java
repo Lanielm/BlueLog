@@ -69,10 +69,10 @@ class PageSnapshot
 	}
 
 	/**
-	 * True when the player is only missing items the user has allowed, and is genuinely still
-	 * missing at least one of them. The predicate is given lowercase item names.
+	 * True when the player is only missing ignored items, and is genuinely still missing at least
+	 * one of them. The predicate is given lowercase item names.
 	 */
-	boolean isOnlyMissing(Predicate<String> allowed)
+	boolean isOnlyMissing(Predicate<String> ignored)
 	{
 		if (isComplete())
 		{
@@ -81,7 +81,7 @@ class PageSnapshot
 
 		for (String item : missing)
 		{
-			if (!allowed.test(item.toLowerCase(Locale.ROOT)))
+			if (!ignored.test(item.toLowerCase(Locale.ROOT)))
 			{
 				return false;
 			}

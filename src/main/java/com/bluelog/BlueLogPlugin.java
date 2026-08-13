@@ -144,17 +144,17 @@ public class BlueLogPlugin extends Plugin
 	private final Map<String, PageSnapshot> pages = new HashMap<>();
 
 	/**
-	 * Tests whether the user is happy to still be missing a given item, by lowercase name. Combines
-	 * the config text box with whichever preset lists are switched on.
+	 * Tests whether an item is ignored, by lowercase name. Combines the config text box with
+	 * whichever preset lists are switched on.
 	 */
-	private Predicate<String> allowedItem = name -> false;
+	private Predicate<String> ignoredItem = name -> false;
 
 	@Override
 	protected void startUp()
 	{
 		// Cache first: the presets are derived from it.
 		loadCache();
-		refreshAllowedItems();
+		refreshIgnoredItems();
 		overlayManager.add(overlay);
 		clientThread.invokeLater(this::recolourList);
 	}
@@ -164,7 +164,7 @@ public class BlueLogPlugin extends Plugin
 	{
 		overlayManager.remove(overlay);
 		pages.clear();
-		allowedItem = name -> false;
+		ignoredItem = name -> false;
 	}
 
 	@Provides
@@ -192,7 +192,7 @@ public class BlueLogPlugin extends Plugin
 			if (snapshotOpenPage())
 			{
 				// Opening the All Pets page is what fills the pets preset, so rebuild before painting.
-				refreshAllowedItems();
+				refreshIgnoredItems();
 				recolourList();
 			}
 		});
@@ -246,8 +246,8 @@ public class BlueLogPlugin extends Plugin
 			items.add(itemName);
 		}
 
-		// Writing the config fires ConfigChanged, which rebuilds the allowed set and repaints.
-		configManager.setConfiguration(BlueLogConfig.GROUP, "allowedItems", String.join(", ", items));
+		// Writing the config fires ConfigChanged, which rebuilds the ignored set and repaints.
+		configManager.setConfiguration(BlueLogConfig.GROUP, BlueLogConfig.IGNORED_ITEMS_KEY, String.join(", ", items));
 
 		// RuneLite's config panel rebuilds on PluginChanged, ExternalPluginsChanged and
 		// ProfileChanged, but never on ConfigChanged, so an open settings panel would keep showing
@@ -262,7 +262,7 @@ public class BlueLogPlugin extends Plugin
 	private List<String> configuredItems()
 	{
 		List<String> items = new ArrayList<>();
-		String raw = config.allowedItems();
+		String raw = config.ignoredItems();
 		if (raw == null)
 		{
 			return items;
@@ -310,7 +310,7 @@ public class BlueLogPlugin extends Plugin
 			return;
 		}
 
-		refreshAllowedItems();
+		refreshIgnoredItems();
 		clientThread.invokeLater(this::recolourList);
 	}
 
@@ -319,7 +319,7 @@ public class BlueLogPlugin extends Plugin
 	{
 		// Collection log progress is per character, so swap in that character's cache.
 		loadCache();
-		refreshAllowedItems();
+		refreshIgnoredItems();
 		clientThread.invokeLater(this::recolourList);
 	}
 
@@ -396,7 +396,7 @@ public class BlueLogPlugin extends Plugin
 
 	/**
 	 * Walks the section list down the left hand side and paints the sections that are one
-	 * allowed item away from completion.
+	 * ignored item away from completion.
 	 */
 	private void recolourList()
 	{
@@ -439,7 +439,7 @@ public class BlueLogPlugin extends Plugin
 						colour = unscannedColor;
 					}
 				}
-				else if (snapshot.isOnlyMissing(allowedItem))
+				else if (snapshot.isOnlyMissing(ignoredItem))
 				{
 					colour = nearCompleteColor;
 				}
@@ -526,21 +526,21 @@ public class BlueLogPlugin extends Plugin
 	}
 
 	/**
-	 * Whether a collection log item slot holds an item the user has allowed to be missing. Used by
+	 * Whether a collection log item slot holds an ignored item. Used by
 	 * the overlay to mark those slots in the open section.
 	 */
-	boolean isAllowedItem(Widget slot)
+	boolean isIgnoredItem(Widget slot)
 	{
-		return allowedItem.test(itemName(slot, slot.getItemId()).toLowerCase(Locale.ROOT));
+		return ignoredItem.test(itemName(slot, slot.getItemId()).toLowerCase(Locale.ROOT));
 	}
 
 	/**
-	 * Rebuilds the allowed set from the config text box plus any preset lists that are switched on.
+	 * Rebuilds the ignored test from the config text box plus any preset lists that are switched on.
 	 * Cheap enough to redo whenever the config or the cache changes.
 	 */
-	private void refreshAllowedItems()
+	private void refreshIgnoredItems()
 	{
-		Set<String> names = new LinkedHashSet<>(parseItemList(config.allowedItems()));
+		Set<String> names = new LinkedHashSet<>(parseItemList(config.ignoredItems()));
 
 		if (config.ignoreAllPets())
 		{
@@ -548,7 +548,7 @@ public class BlueLogPlugin extends Plugin
 		}
 
 		boolean jars = config.ignoreAllJars();
-		allowedItem = name -> names.contains(name) || (jars && name.startsWith(JAR_PREFIX));
+		ignoredItem = name -> names.contains(name) || (jars && name.startsWith(JAR_PREFIX));
 	}
 
 	/**
