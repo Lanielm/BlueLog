@@ -51,9 +51,9 @@ The cache is stored against your RuneLite RuneScape profile, so each character h
 
 Completed sections are never repainted, so they stay green.
 
-Inside the open section, any item slot holding an allowed item gets a small blue dot in its bottom
-left corner, in the same colour, so you can see at a glance which items are the reason a section
-counts as near complete.
+Inside the open section, any item you have not obtained that is on your allowed list gets a small
+blue dot in its bottom left corner, in the same colour, so you can see at a glance which items are
+the reason a section counts as near complete. Items you already own are never marked.
 
 ### Preset lists
 

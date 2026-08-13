@@ -86,7 +86,13 @@ class BlueLogOverlay extends Overlay
 
 		for (Widget slot : slots)
 		{
-			if (slot.isHidden() || slot.getItemId() <= 0 || !plugin.isAllowedItem(slot))
+			// Opacity 0 means the game drew the item solid, i.e. it has been obtained.
+			if (slot.isHidden() || slot.getItemId() <= 0 || slot.getOpacity() == 0)
+			{
+				continue;
+			}
+
+			if (!plugin.isAllowedItem(slot))
 			{
 				continue;
 			}
