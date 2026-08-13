@@ -63,6 +63,19 @@ public interface BlueLogConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "ignoreAllPets",
+		name = "Ignore all pets",
+		description = "Adds every pet you are still missing to the list above. The pets are read from your own"
+			+ " All Pets entry, so open that page in the collection log once to let this take effect.",
+		position = 2,
+		section = itemsSection
+	)
+	default boolean ignoreAllPets()
+	{
+		return false;
+	}
+
+	@ConfigItem(
 		keyName = "nearCompleteColor",
 		name = "Near-complete colour",
 		description = "Colour used for a section whose only missing items are in your list",

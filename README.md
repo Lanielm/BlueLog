@@ -44,11 +44,28 @@ The cache is stored against your RuneLite RuneScape profile, so each character h
 | Setting | What it does |
 | --- | --- |
 | **Allowed missing items** | The list of item names, one per line (commas work too). |
+| **Ignore all pets** | Adds every pet you are still missing to the list. See below. |
 | **Near-complete colour** | Colour for a section that is only missing listed items. Default blue. |
 | **Mark unscanned sections** | Colour sections never opened on this character. Default off. |
 | **Unscanned colour** | Colour used for those. Default grey. |
 
 Completed sections are never repainted, so they stay green.
+
+Inside the open section, any item slot holding an allowed item gets a small blue dot in its bottom
+left corner, in the same colour, so you can see at a glance which items are the reason a section
+counts as near complete.
+
+### Preset lists
+
+**Ignore all pets** is a preset: rather than shipping a hardcoded list of pet names, it reads the
+items you are missing from your own **All Pets** entry and adds them to the allowed list. That way
+it stays correct when new pets are added to the game, and the names always match the game exactly.
+
+The catch is the same one as everywhere else in this plugin: open the All Pets page once, or the
+preset has nothing to read and does nothing.
+
+Note that this also turns the All Pets entry itself blue, since by definition everything it is
+missing is a pet.
 
 ## Building
 

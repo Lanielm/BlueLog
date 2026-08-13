@@ -54,6 +54,7 @@ import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Text;
 
 @Slf4j
@@ -90,6 +91,12 @@ public class BlueLogPlugin extends Plugin
 
 	private static final String CACHE_KEY = "pageCache";
 
+	/**
+	 * Entry the "ignore all pets" preset is sourced from. Its cached missing items are exactly the
+	 * pets the player has yet to obtain, which beats hardcoding a list that would go stale.
+	 */
+	private static final String ALL_PETS_ENTRY = "All Pets";
+
 	private static final Type CACHE_TYPE = new TypeToken<HashMap<String, PageSnapshot>>()
 	{
 	}.getType();
@@ -112,23 +119,35 @@ public class BlueLogPlugin extends Plugin
 	@Inject
 	private Gson gson;
 
+	@Inject
+	private OverlayManager overlayManager;
+
+	@Inject
+	private BlueLogOverlay overlay;
+
 	/** Everything we know about pages the player has opened, keyed by lowercase page name. */
 	private final Map<String, PageSnapshot> pages = new HashMap<>();
 
-	/** Item names the user is happy to still be missing, lowercase. */
+	/**
+	 * Item names the user is happy to still be missing, lowercase. Combines the config text box
+	 * with whichever preset lists are switched on.
+	 */
 	private Set<String> allowedItems = Collections.emptySet();
 
 	@Override
 	protected void startUp()
 	{
-		allowedItems = parseItemList(config.allowedItems());
+		// Cache first: the presets are derived from it.
 		loadCache();
+		refreshAllowedItems();
+		overlayManager.add(overlay);
 		clientThread.invokeLater(this::recolourList);
 	}
 
 	@Override
 	protected void shutDown()
 	{
+		overlayManager.remove(overlay);
 		pages.clear();
 		allowedItems = Collections.emptySet();
 	}
@@ -157,6 +176,8 @@ public class BlueLogPlugin extends Plugin
 		{
 			if (snapshotOpenPage())
 			{
+				// Opening the All Pets page is what fills the pets preset, so rebuild before painting.
+				refreshAllowedItems();
 				recolourList();
 			}
 		});
@@ -179,7 +200,7 @@ public class BlueLogPlugin extends Plugin
 			return;
 		}
 
-		allowedItems = parseItemList(config.allowedItems());
+		refreshAllowedItems();
 		clientThread.invokeLater(this::recolourList);
 	}
 
@@ -188,6 +209,7 @@ public class BlueLogPlugin extends Plugin
 	{
 		// Collection log progress is per character, so swap in that character's cache.
 		loadCache();
+		refreshAllowedItems();
 		clientThread.invokeLater(this::recolourList);
 	}
 
@@ -391,6 +413,57 @@ public class BlueLogPlugin extends Plugin
 		}
 
 		return itemManager.getItemComposition(itemId).getName().trim();
+	}
+
+	/**
+	 * Whether a collection log item slot holds an item the user has allowed to be missing. Used by
+	 * the overlay to mark those slots in the open section.
+	 */
+	boolean isAllowedItem(Widget slot)
+	{
+		if (allowedItems.isEmpty())
+		{
+			return false;
+		}
+
+		return allowedItems.contains(itemName(slot, slot.getItemId()).toLowerCase(Locale.ROOT));
+	}
+
+	/**
+	 * Rebuilds the allowed set from the config text box plus any preset lists that are switched on.
+	 * Cheap enough to redo whenever the config or the cache changes.
+	 */
+	private void refreshAllowedItems()
+	{
+		Set<String> allowed = new LinkedHashSet<>(parseItemList(config.allowedItems()));
+
+		if (config.ignoreAllPets())
+		{
+			allowed.addAll(missingItemsOf(ALL_PETS_ENTRY));
+		}
+
+		allowedItems = allowed;
+	}
+
+	/**
+	 * The items still missing from a cached entry, lowercase. Empty when that entry has never been
+	 * opened, which is what makes a preset a no-op until its source page has been visited.
+	 */
+	private Set<String> missingItemsOf(String entryName)
+	{
+		PageSnapshot snapshot = pages.get(key(entryName));
+		if (snapshot == null || snapshot.missing == null)
+		{
+			return Collections.emptySet();
+		}
+
+		Set<String> items = new LinkedHashSet<>();
+		for (String item : snapshot.missing)
+		{
+			items.add(item.toLowerCase(Locale.ROOT));
+		}
+
+		return items;
 	}
 
 	/** Splits the config box on newlines and commas. */
