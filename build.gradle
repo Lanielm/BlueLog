@@ -35,7 +35,7 @@ tasks.withType(JavaCompile).configureEach {
 // Launches a RuneLite client with this plugin loaded, without needing an IDE.
 tasks.register('run', JavaExec) {
 	group = 'application'
-	description = 'Runs a RuneLite client with Blue Log loaded'
+	description = 'Runs a RuneLite client with BlueLog loaded'
 	classpath = sourceSets.test.runtimeClasspath
 	mainClass.set(pluginMainClass)
 	// RuneLite refuses to load a built-in plugin without assertions enabled.

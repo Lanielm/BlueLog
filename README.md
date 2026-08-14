@@ -1,9 +1,9 @@
-# Blue Log
+# BlueLog
 
 A RuneLite plugin that colours a Collection Log section **blue** when the only items you are
 still missing from it are ones you have listed yourself.
 
-The game already colours section names orange (incomplete) and green (complete). Blue Log adds a
+The game already colours section names orange (incomplete) and green (complete). BlueLog adds a
 third state in between: *"this section is finished apart from the item(s) I told it about."*
 
 ## How it decides
@@ -29,7 +29,7 @@ on either account type matches on the other.
 Nothing in the RuneLite API exposes the full log up front — this is why every collection log
 plugin (collectionlog.net, RuneProfile, and the rest) asks you to click through your pages.
 
-Blue Log therefore learns a section the first time you open it, and remembers it per character.
+BlueLog therefore learns a section the first time you open it, and remembers it per character.
 A section you have never opened has no data and cannot be judged, so it keeps its normal colour.
 
 Practical version:

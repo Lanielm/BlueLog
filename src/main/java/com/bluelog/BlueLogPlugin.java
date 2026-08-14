@@ -42,7 +42,7 @@ import net.runelite.client.util.Text;
 
 @Slf4j
 @PluginDescriptor(
-	name = "Blue Log",
+	name = "BlueLog",
 	description = "Colours a collection log section blue when the only items you are still missing are ones you listed",
 	tags = {"collection", "log", "clog", "blue", "highlight"}
 )
@@ -617,7 +617,7 @@ public class BlueLogPlugin extends Plugin
 		}
 		catch (JsonSyntaxException e)
 		{
-			log.warn("Discarding unreadable Blue Log cache", e);
+			log.warn("Discarding unreadable BlueLog cache", e);
 		}
 	}
 
