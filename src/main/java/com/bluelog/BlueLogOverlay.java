@@ -16,7 +16,7 @@ import net.runelite.client.ui.overlay.OverlayPosition;
 
 /**
  * Marks the item slots of the open collection log section holding ignored items, so it is obvious
- * which items are the reason a section counts as near complete.
+ * which items are the reason a section is highlighted.
  */
 class BlueLogOverlay extends Overlay
 {
@@ -53,7 +53,7 @@ class BlueLogOverlay extends Overlay
 			return null;
 		}
 
-		Color markerColour = config.nearCompleteColor();
+		Color markerColour = config.highlightColour();
 		Shape originalClip = graphics.getClip();
 
 		// Slots scroll within the container, so clip to it rather than painting over the frame.

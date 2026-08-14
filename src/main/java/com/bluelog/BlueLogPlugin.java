@@ -52,10 +52,10 @@ public class BlueLogPlugin extends Plugin
 	 * Text colour the game itself uses for a fully completed section. We never repaint these,
 	 * so a finished section stays green.
 	 */
-	private static final int COMPLETED_PAGE_COLOR = 0x0dc10d;
+	private static final int COMPLETED_PAGE_COLOUR = 0x0dc10d;
 
 	/** Text colour the game itself uses for a section that is not yet complete. */
-	private static final int INCOMPLETE_PAGE_COLOR = 0xff981f;
+	private static final int INCOMPLETE_PAGE_COLOUR = 0xff981f;
 
 	/** Interface group of the collection log, derived from a component so it cannot drift. */
 	private static final int COLLECTION_LOG_GROUP_ID = InterfaceID.Collection.LIST >>> 16;
@@ -387,8 +387,8 @@ public class BlueLogPlugin extends Plugin
 	 */
 	private void recolourList()
 	{
-		int nearCompleteColor = config.nearCompleteColor().getRGB();
-		int unscannedColor = config.unscannedColor().getRGB();
+		int highlightColour = config.highlightColour().getRGB();
+		int unscannedColour = config.unscannedColour().getRGB();
 		boolean markUnscanned = config.highlightUnscanned();
 
 		for (int listId : SECTION_NAME_LISTS)
@@ -408,7 +408,7 @@ public class BlueLogPlugin extends Plugin
 				}
 
 				// A finished section is already green and should stay that way.
-				if (entry.getTextColor() == COMPLETED_PAGE_COLOR)
+				if (entry.getTextColor() == COMPLETED_PAGE_COLOUR)
 				{
 					continue;
 				}
@@ -417,18 +417,18 @@ public class BlueLogPlugin extends Plugin
 				// repaints these widgets until the game redraws the list, so leaving an entry alone
 				// would strand whatever colour was applied last time.
 				PageSnapshot snapshot = pages.get(key(name));
-				int colour = INCOMPLETE_PAGE_COLOR;
+				int colour = INCOMPLETE_PAGE_COLOUR;
 
 				if (snapshot == null)
 				{
 					if (markUnscanned)
 					{
-						colour = unscannedColor;
+						colour = unscannedColour;
 					}
 				}
 				else if (snapshot.isOnlyMissing(ignoredItem))
 				{
-					colour = nearCompleteColor;
+					colour = highlightColour;
 				}
 
 				entry.setTextColor(colour);
