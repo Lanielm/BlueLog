@@ -106,7 +106,7 @@ class PageSnapshots {
 				continue;
 			}
 
-			String itemName = itemManager.getItemComposition(itemId).getName();
+			String itemName = BLUtils.stripMembersSuffix(itemManager.getItemComposition(itemId).getName());
 			if (!itemName.isEmpty()) {
 				missingItems.add(itemName);
 			}

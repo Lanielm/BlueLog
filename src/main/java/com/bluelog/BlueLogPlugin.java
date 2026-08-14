@@ -209,7 +209,7 @@ public class BlueLogPlugin extends Plugin {
 	}
 
 	private String getItemIdName(int itemId) {
-		return itemManager.getItemComposition(itemId).getName();
+		return BLUtils.stripMembersSuffix(itemManager.getItemComposition(itemId).getName());
 	}
 
 	boolean isItemIdIgnored(int itemId) {
