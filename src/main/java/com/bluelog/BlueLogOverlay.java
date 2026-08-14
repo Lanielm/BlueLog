@@ -14,13 +14,7 @@ import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 
-/**
- * Marks the item slots of the open collection log section holding ignored items, so it is obvious
- * which items are the reason a section is highlighted.
- */
-class BlueLogOverlay extends Overlay
-{
-	/** Diameter of the dot, including its outline. Item slots are 36x32. */
+class BlueLogOverlay extends Overlay {
 	private static final int MARKER_SIZE = 7;
 
 	private final Client client;
@@ -28,8 +22,7 @@ class BlueLogOverlay extends Overlay
 	private final BlueLogConfig config;
 
 	@Inject
-	private BlueLogOverlay(Client client, BlueLogPlugin plugin, BlueLogConfig config)
-	{
+	private BlueLogOverlay(Client client, BlueLogPlugin plugin, BlueLogConfig config) {
 		this.client = client;
 		this.plugin = plugin;
 		this.config = config;
@@ -39,37 +32,29 @@ class BlueLogOverlay extends Overlay
 	}
 
 	@Override
-	public Dimension render(Graphics2D graphics)
-	{
+	public Dimension render(Graphics2D graphics) {
 		Widget itemsContents = client.getWidget(InterfaceID.Collection.ITEMS_CONTENTS);
-		if (itemsContents == null || itemsContents.isHidden())
-		{
+		if (itemsContents == null || itemsContents.isHidden()) {
 			return null;
 		}
 
 		Widget[] slots = itemsContents.getDynamicChildren();
-		if (slots == null || slots.length == 0)
-		{
+		if (slots == null || slots.length == 0) {
 			return null;
 		}
 
 		Color markerColour = config.highlightColour();
 		Shape originalClip = graphics.getClip();
 
-		// Slots scroll within the container, so clip to it rather than painting over the frame.
 		graphics.setClip(itemsContents.getBounds());
 		graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-		for (Widget slot : slots)
-		{
-			// Opacity 0 means the game drew the item solid, i.e. it has been obtained.
-			if (slot.isHidden() || slot.getItemId() <= 0 || slot.getOpacity() == 0)
-			{
+		for (Widget slot : slots) {
+			if (slot.isHidden() || slot.getItemId() <= 0 || slot.getOpacity() == 0) {
 				continue;
 			}
 
-			if (!plugin.isIgnoredItem(slot))
-			{
+			if (!plugin.isIgnoredItem(slot)) {
 				continue;
 			}
 
@@ -77,9 +62,11 @@ class BlueLogOverlay extends Overlay
 			int x = bounds.x;
 			int y = bounds.y + bounds.height - MARKER_SIZE;
 
-			// Dark disc first so the mark stays visible against a pale item sprite.
+			// black border
 			graphics.setColor(Color.BLACK);
 			graphics.fillOval(x, y, MARKER_SIZE, MARKER_SIZE);
+
+			// coloured interior
 			graphics.setColor(markerColour);
 			graphics.fillOval(x + 1, y + 1, MARKER_SIZE - 2, MARKER_SIZE - 2);
 		}
