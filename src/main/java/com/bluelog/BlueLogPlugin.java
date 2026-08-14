@@ -233,7 +233,7 @@ public class BlueLogPlugin extends Plugin
 		}
 
 		// Writing the config fires ConfigChanged, which rebuilds the ignored set and repaints.
-		configManager.setConfiguration(BlueLogConfig.GROUP, BlueLogConfig.IGNORED_ITEMS_KEY, String.join(", ", items));
+		configManager.setConfiguration(BlueLogConfig.GROUP, BlueLogConfig.IGNORED_ITEMS_KEY, Text.toCSV(items));
 
 		// RuneLite's config panel rebuilds on PluginChanged, ExternalPluginsChanged and
 		// ProfileChanged, but never on ConfigChanged, so an open settings panel would keep showing
@@ -247,14 +247,14 @@ public class BlueLogPlugin extends Plugin
 	/** The text box contents as individual names, with the user's own capitalisation preserved. */
 	private List<String> configuredItems()
 	{
-		List<String> items = new ArrayList<>();
 		String raw = config.ignoredItems();
 		if (raw == null)
 		{
-			return items;
+			return Collections.emptyList();
 		}
 
-		for (String part : raw.split("[,\\r\\n]"))
+		List<String> items = new ArrayList<>();
+		for (String part : Text.fromCSV(raw))
 		{
 			String cleaned = Text.removeTags(part).trim();
 			if (!cleaned.isEmpty())
@@ -559,7 +559,7 @@ public class BlueLogPlugin extends Plugin
 		return items;
 	}
 
-	/** Splits the config box on newlines and commas. */
+	/** Splits the config box on commas, as RuneLite's own list settings do. */
 	static Set<String> parseItemList(String raw)
 	{
 		if (raw == null || raw.trim().isEmpty())
@@ -568,7 +568,7 @@ public class BlueLogPlugin extends Plugin
 		}
 
 		Set<String> items = new LinkedHashSet<>();
-		for (String part : raw.split("[,\\r\\n]"))
+		for (String part : Text.fromCSV(raw))
 		{
 			String cleaned = normalisedName(Text.removeTags(part));
 			if (!cleaned.isEmpty())

@@ -50,7 +50,7 @@ public class PageSnapshotTest
 	@Test
 	public void everyMissingItemListedIsHighlighted()
 	{
-		Set<String> ignored = BlueLogPlugin.parseItemList("Twisted bow\nElder maul");
+		Set<String> ignored = BlueLogPlugin.parseItemList("Twisted bow, Elder maul");
 		assertTrue(page("Twisted bow", "Elder maul").isOnlyMissing(ignored::contains));
 	}
 
@@ -72,11 +72,19 @@ public class PageSnapshotTest
 	}
 
 	@Test
-	public void parsesNewlinesAndCommas()
+	public void parsesCommaSeparatedNames()
 	{
 		assertEquals(
 			Arrays.asList("twisted bow", "elder maul", "kodai insignia"),
-			new java.util.ArrayList<>(BlueLogPlugin.parseItemList("Twisted bow\nElder maul, Kodai insignia")));
+			new java.util.ArrayList<>(BlueLogPlugin.parseItemList("Twisted bow,Elder maul,  Kodai insignia ")));
+	}
+
+	@Test
+	public void skipsEmptyEntries()
+	{
+		assertEquals(
+			Arrays.asList("twisted bow", "elder maul"),
+			new java.util.ArrayList<>(BlueLogPlugin.parseItemList("Twisted bow,, Elder maul,")));
 	}
 
 	@Test
