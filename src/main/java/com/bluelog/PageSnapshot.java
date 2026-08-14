@@ -56,7 +56,6 @@ class PageSnapshot
 
 		for (String item : missing)
 		{
-			// Normalised, so a page cached before the members suffix was stripped still matches.
 			if (!ignored.test(BlueLogPlugin.normalisedName(item)))
 			{
 				return false;

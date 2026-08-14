@@ -40,7 +40,9 @@ tasks.register('run', JavaExec) {
 	mainClass.set(pluginMainClass)
 	// RuneLite refuses to load a built-in plugin without assertions enabled.
 	jvmArgs('-ea')
-	args('--developer-mode', '--debug')
+	// Own config profile so the plugin's settings and its per-character page cache can be wiped
+	// without touching a real RuneLite profile: delete ~/.runelite/profiles2/bluelog-dev-*.properties.
+	args('--developer-mode', '--debug', '--profile', 'bluelog-dev')
 }
 
 // Dev helper: prints the real constants of a class on the compile classpath, so widget ids can be

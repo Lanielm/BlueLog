@@ -19,7 +19,7 @@ public class PageSnapshotTest
 	/** Mirrors how the plugin builds its ignored test from the config text box alone. */
 	private static Predicate<String> ignoring(String configBox)
 	{
-		return BlueLogPlugin.parseItemList(configBox)::contains;
+		return BlueLogPlugin.parseNormalisedItemNames(configBox)::contains;
 	}
 
 	@Test
@@ -50,7 +50,7 @@ public class PageSnapshotTest
 	@Test
 	public void everyMissingItemListedIsHighlighted()
 	{
-		Set<String> ignored = BlueLogPlugin.parseItemList("Twisted bow, Elder maul");
+		Set<String> ignored = BlueLogPlugin.parseNormalisedItemNames("Twisted bow, Elder maul");
 		assertTrue(page("Twisted bow", "Elder maul").isOnlyMissing(ignored::contains));
 	}
 
@@ -76,7 +76,7 @@ public class PageSnapshotTest
 	{
 		assertEquals(
 			Arrays.asList("twisted bow", "elder maul", "kodai insignia"),
-			new java.util.ArrayList<>(BlueLogPlugin.parseItemList("Twisted bow,Elder maul,  Kodai insignia ")));
+			new java.util.ArrayList<>(BlueLogPlugin.parseNormalisedItemNames("Twisted bow,Elder maul,  Kodai insignia ")));
 	}
 
 	@Test
@@ -84,40 +84,21 @@ public class PageSnapshotTest
 	{
 		assertEquals(
 			Arrays.asList("twisted bow", "elder maul"),
-			new java.util.ArrayList<>(BlueLogPlugin.parseItemList("Twisted bow,, Elder maul,")));
+			new java.util.ArrayList<>(BlueLogPlugin.parseNormalisedItemNames("Twisted bow,, Elder maul,")));
 	}
 
 	@Test
-	public void membersSuffixIsStrippedFromTheConfigBox()
+	public void bracketedNamesAreKeptVerbatim()
 	{
 		assertEquals(
-			Collections.singletonList("unsired"),
-			new java.util.ArrayList<>(BlueLogPlugin.parseItemList("Unsired (Members)")));
-	}
-
-	@Test
-	public void membersSuffixIsIgnoredWhenMatching()
-	{
-		// Free world log entry, list written on members.
-		assertTrue(page("Unsired (Members)").isOnlyMissing(ignoring("Unsired")));
-
-		// Members log entry, list written on a free world.
-		assertTrue(page("Unsired").isOnlyMissing(ignoring("Unsired (Members)")));
-	}
-
-	@Test
-	public void stripMembersSuffixKeepsCapitalisationAndInnerBrackets()
-	{
-		assertEquals("Unsired", BlueLogPlugin.stripMembersSuffix("Unsired (Members)"));
-		assertEquals("Unsired", BlueLogPlugin.stripMembersSuffix("Unsired"));
-		assertEquals("Ring of 3rd age", BlueLogPlugin.stripMembersSuffix("Ring of 3rd age"));
-		assertEquals("Bucket (Members) of sand", BlueLogPlugin.stripMembersSuffix("Bucket (Members) of sand"));
+			Collections.singletonList("unsired (members)"),
+			new java.util.ArrayList<>(BlueLogPlugin.parseNormalisedItemNames("Unsired (Members)")));
 	}
 
 	@Test
 	public void blankInputParsesToEmptySet()
 	{
-		assertTrue(BlueLogPlugin.parseItemList("   ").isEmpty());
-		assertTrue(BlueLogPlugin.parseItemList(null).isEmpty());
+		assertTrue(BlueLogPlugin.parseNormalisedItemNames("   ").isEmpty());
+		assertTrue(BlueLogPlugin.parseNormalisedItemNames(null).isEmpty());
 	}
 }

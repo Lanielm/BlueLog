@@ -15,13 +15,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.EnumComposition;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.ScriptID;
+import net.runelite.api.StructComposition;
 import net.runelite.api.events.MenuOpened;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetLoaded;
@@ -41,60 +42,31 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Text;
 
 @Slf4j
-@PluginDescriptor(
-	name = "BlueLog",
-	description = "Colours a collection log section blue when the only items you are still missing are ones you listed",
-	tags = {"collection", "log", "clog", "blue", "highlight"}
-)
-public class BlueLogPlugin extends Plugin
-{
-	/**
-	 * Text colour the game itself uses for a fully completed section. We never repaint these,
-	 * so a finished section stays green.
-	 */
+@PluginDescriptor(name = "BlueLog", description = "Colours a clog section blue when only ignored items are missing", tags = {
+		"collection", "log", "clog" })
+public class BlueLogPlugin extends Plugin {
 	private static final int COMPLETED_PAGE_COLOUR = 0x0dc10d;
-
-	/** Text colour the game itself uses for a section that is not yet complete. */
 	private static final int INCOMPLETE_PAGE_COLOUR = 0xff981f;
-
-	/** Interface group of the collection log, derived from a component so it cannot drift. */
 	private static final int COLLECTION_LOG_GROUP_ID = InterfaceID.Collection.LIST >>> 16;
 
-	/**
-	 * Section names are not held in one list. Each of the five tabs has its own text layer whose
-	 * dynamic children are that tab's section names, so all five are walked.
-	 */
-	private static final int[] SECTION_NAME_LISTS = {
-		InterfaceID.Collection.BOSS_TEXT,
-		InterfaceID.Collection.RAID_TEXT,
-		InterfaceID.Collection.CLUE_TEXT,
-		InterfaceID.Collection.MINIGAME_TEXT,
-		InterfaceID.Collection.OTHER_TEXT,
+	private static final int[] SECTION_LIST_WIDGET_IDS = {
+			InterfaceID.Collection.BOSS_TEXT,
+			InterfaceID.Collection.RAID_TEXT,
+			InterfaceID.Collection.CLUE_TEXT,
+			InterfaceID.Collection.MINIGAME_TEXT,
+			InterfaceID.Collection.OTHER_TEXT,
 	};
 
-	private static final String CACHE_KEY = "pageCache";
+	private static final int[] COLLECTION_LOG_TAB_STRUCT_IDS = { 471, 472, 473, 474, 475 };
+	private static final int TAB_PAGES_ENUM_PARAM = 683;
+	private static final int PAGE_NAME_PARAM = 689;
+	private static final int PAGE_ITEMS_ENUM_PARAM = 690;
 
-	/**
-	 * Entry the "ignore all pets" preset is sourced from. Its cached missing items are exactly the
-	 * pets the player has yet to obtain, which beats hardcoding a list that would go stale.
-	 */
-	private static final String ALL_PETS_ENTRY = "All Pets";
+	private static final String PAGE_CACHE_CONFIG_KEY = "pageCache";
+	private static final String ALL_PETS_PAGE_NAME = "All Pets";
+	private static final String JAR_NAME_PREFIX = "jar of ";
 
-	/**
-	 * Every boss jar in the game is named "Jar of ...", so the jars preset matches on the prefix
-	 * rather than a fixed list that would need updating whenever a new one is released.
-	 */
-	private static final String JAR_PREFIX = "jar of ";
-
-	/**
-	 * On free worlds the game renders members-only items as "Unsired (Members)". The suffix is a
-	 * display decoration rather than part of the item name, so it is stripped everywhere: the text
-	 * box stays readable, and a list written on a members account still matches on a free one.
-	 */
-	private static final Pattern MEMBERS_SUFFIX = Pattern.compile("\\s*\\(members\\)$", Pattern.CASE_INSENSITIVE);
-
-	private static final Type CACHE_TYPE = new TypeToken<HashMap<String, PageSnapshot>>()
-	{
+	private static final Type PAGE_CACHE_TYPE = new TypeToken<HashMap<String, PageSnapshot>>() {
 	}.getType();
 
 	@Inject
@@ -124,155 +96,188 @@ public class BlueLogPlugin extends Plugin
 	@Inject
 	private BlueLogOverlay overlay;
 
-	/** Everything we know about pages the player has opened, keyed by lowercase page name. */
-	private final Map<String, PageSnapshot> pages = new HashMap<>();
+	private final Map<String, PageSnapshot> snapshotsByPageKey = new HashMap<>();
 
-	/**
-	 * Tests whether an item is ignored, by lowercase name. Combines the config text box with
-	 * whichever preset lists are switched on.
-	 */
-	private Predicate<String> ignoredItem = name -> false;
+	private Predicate<String> isIgnoredNormalisedName = name -> false;
 
-	@Override
-	protected void startUp()
-	{
-		// Cache first: the presets are derived from it.
-		loadCache();
-		refreshIgnoredItems();
-		overlayManager.add(overlay);
-		clientThread.invokeLater(this::recolourList);
+	private Set<String> petNamesFromGameCache = Collections.emptySet();
+
+	private void recolourSectionLists() {
+		int highlightRGB = config.highlightColour().getRGB();
+		int unscannedRGB = config.unscannedColour().getRGB();
+		boolean shouldMarkUnscanned = config.highlightUnscanned();
+
+		for (int sectionListWidgetId : SECTION_LIST_WIDGET_IDS) {
+			Widget sectionList = client.getWidget(sectionListWidgetId);
+			if (sectionList == null) {
+				continue;
+			}
+
+			for (Widget sectionEntry : sectionEntries(sectionList)) {
+				String sectionName = Text.removeTags(Text.sanitize(sectionEntry.getText())).trim();
+				if (sectionName.isEmpty()) {
+					continue;
+				}
+
+				if (sectionEntry.getTextColor() == COMPLETED_PAGE_COLOUR) {
+					continue;
+				}
+
+				PageSnapshot snapshot = snapshotsByPageKey.get(pageKey(sectionName));
+				int colour = INCOMPLETE_PAGE_COLOUR;
+
+				if (snapshot == null) {
+					if (shouldMarkUnscanned) {
+						colour = unscannedRGB;
+					}
+				} else if (snapshot.isOnlyMissing(isIgnoredNormalisedName)) {
+					colour = highlightRGB;
+				}
+
+				sectionEntry.setTextColor(colour);
+			}
+		}
+	}
+
+	private static Widget[] sectionEntries(Widget sectionList) {
+		Widget[] children = sectionList.getDynamicChildren();
+		if (children != null && children.length > 0) {
+			return children;
+		}
+
+		return new Widget[] { sectionList };
+	}
+
+	boolean isIgnoredItemSlot(Widget slot) {
+		return isIgnoredNormalisedName.test(normalisedName(itemName(slot.getItemId())));
 	}
 
 	@Override
-	protected void shutDown()
-	{
+	protected void startUp() {
+		loadPageCache();
+		rebuildIgnoredItemTest();
+		overlayManager.add(overlay);
+
+		clientThread.invokeLater(() -> {
+			if (loadPetNamesIfNeeded()) {
+				rebuildIgnoredItemTest();
+			}
+
+			recolourSectionLists();
+		});
+	}
+
+	@Override
+	protected void shutDown() {
 		overlayManager.remove(overlay);
-		pages.clear();
-		ignoredItem = name -> false;
+		snapshotsByPageKey.clear();
+		petNamesFromGameCache = Collections.emptySet();
+		isIgnoredNormalisedName = name -> false;
 	}
 
 	@Provides
-	BlueLogConfig provideConfig(ConfigManager configManager)
-	{
+	BlueLogConfig provideConfig(ConfigManager configManager) {
 		return configManager.getConfig(BlueLogConfig.class);
 	}
 
 	@Subscribe
-	public void onScriptPostFired(ScriptPostFired event)
-	{
-		if (event.getScriptId() != ScriptID.COLLECTION_DRAW_LIST)
-		{
+	public void onScriptPostFired(ScriptPostFired event) {
+		if (event.getScriptId() != ScriptID.COLLECTION_DRAW_LIST) {
 			return;
 		}
 
-		// The list widgets already carry their final text and colour by the time this script
-		// returns, so recolour immediately to avoid a frame of orange.
-		recolourList();
+		recolourSectionLists();
 
-		// Item slots for the newly selected page are not populated until the client has
-		// finished the tick, so read them once things have settled and repaint again.
-		clientThread.invokeLater(() ->
-		{
-			if (snapshotOpenPage())
-			{
-				// Opening the All Pets page is what fills the pets preset, so rebuild before painting.
-				refreshIgnoredItems();
-				recolourList();
+		clientThread.invokeLater(() -> {
+			// Second chance at the pet list: startUp can run before the game cache is
+			// reachable, but the log being open means it certainly is now.
+			boolean petsLoaded = loadPetNamesIfNeeded();
+			boolean pageChanged = snapshotOpenPageIfChanged();
+
+			if (petsLoaded || pageChanged) {
+				// The pets preset falls back to the All Pets snapshot, so the page that just
+				// changed may have changed the ignore test with it.
+				rebuildIgnoredItemTest();
+				recolourSectionLists();
 			}
 		});
 	}
 
 	@Subscribe
-	public void onMenuOpened(MenuOpened event)
-	{
-		for (MenuEntry entry : event.getMenuEntries())
-		{
+	public void onMenuOpened(MenuOpened event) {
+		for (MenuEntry entry : event.getMenuEntries()) {
 			Widget slot = entry.getWidget();
-			if (slot == null || !isCollectionLogSlot(slot) || slot.getItemId() <= 0)
-			{
+			if (slot == null || !isCollectionLogSlot(slot) || slot.getItemId() <= 0) {
 				continue;
 			}
 
-			addIgnoreOption(itemName(slot, slot.getItemId()));
+			addIgnoreMenuEntry(itemName(slot.getItemId()));
 			return;
 		}
 	}
 
 	/** Dynamic children report their parent as their id, so accept either form. */
-	private static boolean isCollectionLogSlot(Widget slot)
-	{
+	private static boolean isCollectionLogSlot(Widget slot) {
 		return slot.getId() == InterfaceID.Collection.ITEMS_CONTENTS
-			|| slot.getParentId() == InterfaceID.Collection.ITEMS_CONTENTS;
+				|| slot.getParentId() == InterfaceID.Collection.ITEMS_CONTENTS;
 	}
 
-	/**
-	 * Adds an entry that toggles the item in the config text box. Presets are deliberately not
-	 * consulted: this option edits the hand written list, which is the only part it can change.
-	 */
-	private void addIgnoreOption(String itemName)
-	{
-		boolean listed = containsIgnoringCase(configuredItems(), itemName);
+	// Presets are deliberately not consulted: this entry edits the hand written
+	// list, which is the only part it can change.
+	private void addIgnoreMenuEntry(String itemName) {
+		boolean alreadyIgnored = containsNormalisedName(ignoredItemsAsTyped(), itemName);
 
 		client.getMenu()
-			.createMenuEntry(-1)
-			.setOption(listed ? "Unignore item" : "Ignore item")
-			.setTarget("<col=ff9040>" + itemName + "</col>")
-			.setType(MenuAction.RUNELITE)
-			.onClick(e -> toggleConfiguredItem(itemName));
+				.createMenuEntry(-1)
+				.setOption(alreadyIgnored ? "Unignore item" : "Ignore item")
+				.setTarget("<col=ff9040>" + itemName + "</col>")
+				.setType(MenuAction.RUNELITE)
+				.onClick(e -> toggleIgnoredItemInConfig(itemName));
 	}
 
-	private void toggleConfiguredItem(String itemName)
-	{
-		List<String> items = configuredItems();
+	private void toggleIgnoredItemInConfig(String itemName) {
+		List<String> ignoredItems = ignoredItemsAsTyped();
 
-		// Compare normalised so a legacy entry saved as "Unsired (Members)" is still removed.
-		String target = normalisedName(itemName);
-		if (!items.removeIf(existing -> normalisedName(existing).equals(target)))
-		{
-			items.add(itemName);
+		String normalisedTarget = normalisedName(itemName);
+		if (!ignoredItems.removeIf(existing -> normalisedName(existing).equals(normalisedTarget))) {
+			ignoredItems.add(itemName);
 		}
 
-		// Writing the config fires ConfigChanged, which rebuilds the ignored set and repaints.
-		configManager.setConfiguration(BlueLogConfig.GROUP, BlueLogConfig.IGNORED_ITEMS_KEY, Text.toCSV(items));
+		// Writing the config fires ConfigChanged, which rebuilds the ignored test and
+		// repaints.
+		configManager.setConfiguration(BlueLogConfig.GROUP, BlueLogConfig.IGNORED_ITEMS_KEY, Text.toCSV(ignoredItems));
 
 		// RuneLite's config panel rebuilds on PluginChanged, ExternalPluginsChanged and
-		// ProfileChanged, but never on ConfigChanged, so an open settings panel would keep showing
-		// the old text and write it back over this change when the field next loses focus.
-		// ExternalPluginsChanged is the narrowest of the three that forces a rebuild: it is only
-		// observed by the config and plugin list panels, whereas ProfileChanged would make a couple
-		// of dozen plugins reload their state.
+		// ProfileChanged, but never on ConfigChanged, so an open settings panel would
+		// keep showing the old text and write it back over this change when the field
+		// next loses focus. ExternalPluginsChanged is the narrowest of the three that
+		// forces a rebuild: it is only observed by the config and plugin list panels,
+		// whereas ProfileChanged would make a couple of dozen plugins reload their
+		// state.
 		eventBus.post(new ExternalPluginsChanged());
 	}
 
-	/** The text box contents as individual names, with the user's own capitalisation preserved. */
-	private List<String> configuredItems()
-	{
-		String raw = config.ignoredItems();
-		if (raw == null)
-		{
+	private List<String> ignoredItemsAsTyped() {
+		String configuredText = config.ignoredItems();
+		if (configuredText == null) {
 			return Collections.emptyList();
 		}
 
-		List<String> items = new ArrayList<>();
-		for (String part : Text.fromCSV(raw))
-		{
+		List<String> ignoredItems = new ArrayList<>();
+		for (String part : Text.fromCSV(configuredText)) {
 			String cleaned = Text.removeTags(part).trim();
-			if (!cleaned.isEmpty())
-			{
-				items.add(cleaned);
+			if (!cleaned.isEmpty()) {
+				ignoredItems.add(cleaned);
 			}
 		}
 
-		return items;
+		return ignoredItems;
 	}
 
-	private static boolean containsIgnoringCase(List<String> items, String name)
-	{
-		String target = normalisedName(name);
-		for (String item : items)
-		{
-			if (normalisedName(item).equals(target))
-			{
+	private static boolean containsNormalisedName(List<String> items, String name) {
+		String normalisedTarget = normalisedName(name);
+		for (String item : items) {
+			if (normalisedName(item).equals(normalisedTarget)) {
 				return true;
 			}
 		}
@@ -281,219 +286,119 @@ public class BlueLogPlugin extends Plugin
 	}
 
 	@Subscribe
-	public void onWidgetLoaded(WidgetLoaded event)
-	{
-		if (event.getGroupId() == COLLECTION_LOG_GROUP_ID)
-		{
-			clientThread.invokeLater(this::recolourList);
+	public void onWidgetLoaded(WidgetLoaded event) {
+		if (event.getGroupId() == COLLECTION_LOG_GROUP_ID) {
+			clientThread.invokeLater(this::recolourSectionLists);
 		}
 	}
 
 	@Subscribe
-	public void onConfigChanged(ConfigChanged event)
-	{
-		if (!BlueLogConfig.GROUP.equals(event.getGroup()))
-		{
+	public void onConfigChanged(ConfigChanged event) {
+		if (!BlueLogConfig.GROUP.equals(event.getGroup())) {
 			return;
 		}
 
-		refreshIgnoredItems();
-		clientThread.invokeLater(this::recolourList);
+		rebuildIgnoredItemTest();
+		clientThread.invokeLater(this::recolourSectionLists);
 	}
 
 	@Subscribe
-	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
-	{
+	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event) {
 		// Collection log progress is per character, so swap in that character's cache.
-		loadCache();
-		refreshIgnoredItems();
-		clientThread.invokeLater(this::recolourList);
+		loadPageCache();
+		rebuildIgnoredItemTest();
+		clientThread.invokeLater(this::recolourSectionLists);
 	}
 
-	/**
-	 * Reads the section currently displayed on the right hand side of the log and records
-	 * which of its items are still missing.
-	 *
-	 * @return true when the stored data for that section changed
-	 */
-	private boolean snapshotOpenPage()
-	{
+	private boolean snapshotOpenPageIfChanged() {
 		String pageName = openPageName();
-		if (pageName == null || pageName.isEmpty())
-		{
+		if (pageName == null || pageName.isEmpty()) {
 			return false;
 		}
 
-		// Slots are created in ITEMS_CONTENTS. ITEMS is only the outer container that gets resized.
-		Widget itemsList = client.getWidget(InterfaceID.Collection.ITEMS_CONTENTS);
-		if (itemsList == null)
-		{
+		// Slots are created in ITEMS_CONTENTS. ITEMS is only the outer container that
+		// gets resized.
+		Widget itemsContainer = client.getWidget(InterfaceID.Collection.ITEMS_CONTENTS);
+		if (itemsContainer == null) {
 			return false;
 		}
 
-		Widget[] slots = itemsList.getDynamicChildren();
-		if (slots == null || slots.length == 0)
-		{
+		Widget[] slots = itemsContainer.getDynamicChildren();
+		if (slots == null || slots.length == 0) {
 			// Page has not rendered its items yet; keep whatever we already knew.
 			return false;
 		}
 
-		List<String> missing = new ArrayList<>();
-		int total = 0;
+		List<String> missingItems = new ArrayList<>();
+		int itemSlotCount = 0;
 
-		for (Widget slot : slots)
-		{
+		for (Widget slot : slots) {
 			int itemId = slot.getItemId();
-			if (itemId <= 0)
-			{
+			if (itemId <= 0) {
 				continue;
 			}
 
-			total++;
+			itemSlotCount++;
 
-			// Obtained items are drawn fully opaque; missing ones are faded out by the game.
-			if (slot.getOpacity() == 0)
-			{
+			// Obtained items are drawn fully opaque; missing ones are faded out by the
+			// game.
+			if (slot.getOpacity() == 0) {
 				continue;
 			}
 
-			String itemName = itemName(slot, itemId);
-			if (!itemName.isEmpty())
-			{
-				missing.add(itemName);
+			String itemName = itemName(itemId);
+			if (!itemName.isEmpty()) {
+				missingItems.add(itemName);
 			}
 		}
 
-		if (total == 0)
-		{
+		if (itemSlotCount == 0) {
 			return false;
 		}
 
-		PageSnapshot snapshot = new PageSnapshot(pageName, missing, total, System.currentTimeMillis());
-		PageSnapshot previous = pages.get(key(pageName));
-		if (snapshot.sameContentAs(previous))
-		{
+		PageSnapshot snapshot = new PageSnapshot(pageName, missingItems, itemSlotCount, System.currentTimeMillis());
+		PageSnapshot previousSnapshot = snapshotsByPageKey.get(pageKey(pageName));
+		if (snapshot.sameContentAs(previousSnapshot)) {
 			return false;
 		}
 
-		pages.put(key(pageName), snapshot);
-		saveCache();
+		snapshotsByPageKey.put(pageKey(pageName), snapshot);
+		savePageCache();
 		return true;
 	}
 
-	/**
-	 * Walks the section list down the left hand side and paints the sections that are one
-	 * ignored item away from completion.
-	 */
-	private void recolourList()
-	{
-		int highlightColour = config.highlightColour().getRGB();
-		int unscannedColour = config.unscannedColour().getRGB();
-		boolean markUnscanned = config.highlightUnscanned();
-
-		for (int listId : SECTION_NAME_LISTS)
-		{
-			Widget list = client.getWidget(listId);
-			if (list == null)
-			{
-				continue;
-			}
-
-			for (Widget entry : sectionEntries(list))
-			{
-				String name = Text.removeTags(Text.sanitize(entry.getText())).trim();
-				if (name.isEmpty())
-				{
-					continue;
-				}
-
-				// A finished section is already green and should stay that way.
-				if (entry.getTextColor() == COMPLETED_PAGE_COLOUR)
-				{
-					continue;
-				}
-
-				// Always set a colour rather than only painting the interesting cases. Nothing else
-				// repaints these widgets until the game redraws the list, so leaving an entry alone
-				// would strand whatever colour was applied last time.
-				PageSnapshot snapshot = pages.get(key(name));
-				int colour = INCOMPLETE_PAGE_COLOUR;
-
-				if (snapshot == null)
-				{
-					if (markUnscanned)
-					{
-						colour = unscannedColour;
-					}
-				}
-				else if (snapshot.isOnlyMissing(ignoredItem))
-				{
-					colour = highlightColour;
-				}
-
-				entry.setTextColor(colour);
-			}
-		}
-	}
-
-	/**
-	 * The per-tab text layer holds one dynamic child per section. Fall back to the layer itself in
-	 * case a tab is laid out as a single text widget.
-	 */
-	private static Widget[] sectionEntries(Widget list)
-	{
-		Widget[] children = list.getDynamicChildren();
-		if (children != null && children.length > 0)
-		{
-			return children;
-		}
-
-		return new Widget[]{list};
-	}
-
-	/** The name of the section currently open, read from the panel header. */
-	private String openPageName()
-	{
+	private String openPageName() {
 		Widget header = client.getWidget(InterfaceID.Collection.HEADER_TEXT);
-		if (header == null)
-		{
+		if (header == null) {
 			header = client.getWidget(InterfaceID.Collection.HEADER);
 		}
 
-		if (header == null)
-		{
+		if (header == null) {
 			return null;
 		}
 
-		String text = firstNonEmptyText(header);
-		return text == null ? null : Text.removeTags(text).trim();
+		String headerText = firstNonEmptyText(header);
+		return headerText == null ? null : Text.removeTags(headerText).trim();
 	}
 
-	/**
-	 * The header is sometimes the text widget itself and sometimes a container whose first
-	 * line is the section name, so check the widget and then its children.
-	 */
-	private static String firstNonEmptyText(Widget header)
-	{
-		String own = header.getText();
-		if (own != null && !own.isEmpty())
-		{
-			return own;
+	// The header is sometimes the text widget itself and sometimes a container
+	// whose first line is the section name, so check the widget and then its
+	// children.
+	private static String firstNonEmptyText(Widget header) {
+		String ownText = header.getText();
+		if (ownText != null && !ownText.isEmpty()) {
+			return ownText;
 		}
 
-		for (Widget[] children : Arrays.asList(header.getDynamicChildren(), header.getStaticChildren()))
-		{
-			if (children == null)
-			{
+		for (Widget[] children : Arrays.asList(header.getDynamicChildren(), header.getStaticChildren())) {
+			if (children == null) {
 				continue;
 			}
 
-			for (Widget child : children)
-			{
-				String text = child.getText();
-				if (text != null && !text.isEmpty())
-				{
-					return text;
+			for (Widget child : children) {
+				String childText = child.getText();
+				if (childText != null && !childText.isEmpty()) {
+					return childText;
 				}
 			}
 		}
@@ -501,128 +406,155 @@ public class BlueLogPlugin extends Plugin
 		return null;
 	}
 
-	private String itemName(Widget slot, int itemId)
-	{
-		String name = stripMembersSuffix(Text.removeTags(Text.sanitize(slot.getName())));
-		if (!name.isEmpty())
-		{
-			return name;
-		}
-
+	// Taken from the item definition rather than the slot widget, whose name
+	// carries
+	// the log's own decorations: colour tags and a "(Members)" suffix on free
+	// worlds.
+	private String itemName(int itemId) {
 		return itemManager.getItemComposition(itemId).getName().trim();
 	}
 
-	/**
-	 * Whether a collection log item slot holds an ignored item. Used by
-	 * the overlay to mark those slots in the open section.
-	 */
-	boolean isIgnoredItem(Widget slot)
-	{
-		return ignoredItem.test(normalisedName(itemName(slot, slot.getItemId())));
-	}
+	private void rebuildIgnoredItemTest() {
+		Set<String> ignoredNames = new LinkedHashSet<>(parseNormalisedItemNames(config.ignoredItems()));
 
-	/**
-	 * Rebuilds the ignored test from the config text box plus any preset lists that are switched on.
-	 * Cheap enough to redo whenever the config or the cache changes.
-	 */
-	private void refreshIgnoredItems()
-	{
-		Set<String> names = new LinkedHashSet<>(parseItemList(config.ignoredItems()));
-
-		if (config.ignoreAllPets())
-		{
-			names.addAll(missingItemsOf(ALL_PETS_ENTRY));
+		if (config.ignoreAllPets()) {
+			// The snapshot only knows the pets missing at the player's last visit, so it is
+			// the fallback for when the game cache lookup found nothing.
+			ignoredNames.addAll(petNamesFromGameCache.isEmpty()
+					? normalisedMissingItemsOf(ALL_PETS_PAGE_NAME)
+					: petNamesFromGameCache);
 		}
 
-		boolean jars = config.ignoreAllJars();
-		ignoredItem = name -> names.contains(name) || (jars && name.startsWith(JAR_PREFIX));
+		boolean ignoreAllJars = config.ignoreAllJars();
+		isIgnoredNormalisedName = name -> ignoredNames.contains(name)
+				|| (ignoreAllJars && name.startsWith(JAR_NAME_PREFIX));
+	}
+
+	/** @return true when the pet list was read for the first time. */
+	private boolean loadPetNamesIfNeeded() {
+		if (!petNamesFromGameCache.isEmpty()) {
+			return false;
+		}
+
+		Set<String> petNames = readPageItemNames(ALL_PETS_PAGE_NAME);
+		if (petNames.isEmpty()) {
+			return false;
+		}
+
+		petNamesFromGameCache = petNames;
+		return true;
 	}
 
 	/**
-	 * The items still missing from a cached entry, lowercase. Empty when that entry has never been
-	 * opened, which is what makes a preset a no-op until its source page has been visited.
+	 * Every item on a collection log page, read from the game cache rather than
+	 * from the widgets, so the page does not have to have been opened. Must run on
+	 * the client thread.
 	 */
-	private Set<String> missingItemsOf(String entryName)
-	{
-		PageSnapshot snapshot = pages.get(key(entryName));
-		if (snapshot == null || snapshot.missing == null)
-		{
+	private Set<String> readPageItemNames(String pageName) {
+		try {
+			for (int tabStructId : COLLECTION_LOG_TAB_STRUCT_IDS) {
+				StructComposition tab = client.getStructComposition(tabStructId);
+				if (tab == null) {
+					continue;
+				}
+
+				EnumComposition pages = client.getEnum(tab.getIntValue(TAB_PAGES_ENUM_PARAM));
+				if (pages == null) {
+					continue;
+				}
+
+				for (int pageStructId : pages.getIntVals()) {
+					StructComposition page = client.getStructComposition(pageStructId);
+					if (page == null || !pageName.equalsIgnoreCase(page.getStringValue(PAGE_NAME_PARAM))) {
+						continue;
+					}
+
+					return itemNamesOf(page.getIntValue(PAGE_ITEMS_ENUM_PARAM));
+				}
+			}
+		} catch (RuntimeException e) {
+			// A cache id that no longer resolves must not take the plugin down with it.
+			log.warn("Could not read collection log page '{}' from the game cache", pageName, e);
+		}
+
+		return Collections.emptySet();
+	}
+
+	private Set<String> itemNamesOf(int itemsEnumId) {
+		EnumComposition items = client.getEnum(itemsEnumId);
+		if (items == null) {
 			return Collections.emptySet();
 		}
 
-		Set<String> items = new LinkedHashSet<>();
-		for (String item : snapshot.missing)
-		{
-			items.add(normalisedName(item));
-		}
-
-		return items;
-	}
-
-	/** Splits the config box on commas, as RuneLite's own list settings do. */
-	static Set<String> parseItemList(String raw)
-	{
-		if (raw == null || raw.trim().isEmpty())
-		{
-			return Collections.emptySet();
-		}
-
-		Set<String> items = new LinkedHashSet<>();
-		for (String part : Text.fromCSV(raw))
-		{
-			String cleaned = normalisedName(Text.removeTags(part));
-			if (!cleaned.isEmpty())
-			{
-				items.add(cleaned);
+		Set<String> names = new LinkedHashSet<>();
+		for (int itemId : items.getIntVals()) {
+			String name = itemName(itemId);
+			if (!name.isEmpty()) {
+				names.add(normalisedName(name));
 			}
 		}
 
-		return items;
+		return names;
 	}
 
-	/** An item name reduced to its comparable form: no members suffix, no case, no padding. */
-	static String normalisedName(String name)
-	{
-		return stripMembersSuffix(name).toLowerCase(Locale.ROOT);
+	private Set<String> normalisedMissingItemsOf(String pageName) {
+		PageSnapshot snapshot = snapshotsByPageKey.get(pageKey(pageName));
+		if (snapshot == null || snapshot.missing == null) {
+			return Collections.emptySet();
+		}
+
+		Set<String> normalisedItems = new LinkedHashSet<>();
+		for (String item : snapshot.missing) {
+			normalisedItems.add(normalisedName(item));
+		}
+
+		return normalisedItems;
 	}
 
-	/** An item name as it should be displayed and stored, keeping its original capitalisation. */
-	static String stripMembersSuffix(String name)
-	{
-		return MEMBERS_SUFFIX.matcher(name.trim()).replaceFirst("").trim();
+	static Set<String> parseNormalisedItemNames(String configuredText) {
+		if (configuredText == null || configuredText.trim().isEmpty()) {
+			return Collections.emptySet();
+		}
+
+		Set<String> normalisedItems = new LinkedHashSet<>();
+		for (String part : Text.fromCSV(configuredText)) {
+			String normalised = normalisedName(Text.removeTags(part));
+			if (!normalised.isEmpty()) {
+				normalisedItems.add(normalised);
+			}
+		}
+
+		return normalisedItems;
 	}
 
-	private static String key(String pageName)
-	{
+	static String normalisedName(String name) {
+		return name.trim().toLowerCase(Locale.ROOT);
+	}
+
+	private static String pageKey(String pageName) {
 		return pageName.toLowerCase(Locale.ROOT);
 	}
 
-	private void loadCache()
-	{
-		pages.clear();
+	private void loadPageCache() {
+		snapshotsByPageKey.clear();
 
-		String json = configManager.getRSProfileConfiguration(BlueLogConfig.GROUP, CACHE_KEY);
-		if (json == null || json.isEmpty())
-		{
+		String json = configManager.getRSProfileConfiguration(BlueLogConfig.GROUP, PAGE_CACHE_CONFIG_KEY);
+		if (json == null || json.isEmpty()) {
 			return;
 		}
 
-		try
-		{
-			Map<String, PageSnapshot> stored = gson.fromJson(json, CACHE_TYPE);
-			if (stored != null)
-			{
-				pages.putAll(stored);
+		try {
+			Map<String, PageSnapshot> storedSnapshots = gson.fromJson(json, PAGE_CACHE_TYPE);
+			if (storedSnapshots != null) {
+				snapshotsByPageKey.putAll(storedSnapshots);
 			}
-		}
-		catch (JsonSyntaxException e)
-		{
+		} catch (JsonSyntaxException e) {
 			log.warn("Discarding unreadable BlueLog cache", e);
 		}
 	}
 
-	private void saveCache()
-	{
-		configManager.setRSProfileConfiguration(BlueLogConfig.GROUP, CACHE_KEY, gson.toJson(pages, CACHE_TYPE));
+	private void savePageCache() {
+		configManager.setRSProfileConfiguration(BlueLogConfig.GROUP, PAGE_CACHE_CONFIG_KEY,
+				gson.toJson(snapshotsByPageKey, PAGE_CACHE_TYPE));
 	}
 }
