@@ -118,8 +118,9 @@ also run `BlueLogPluginTest.main` from your IDE, which does the same thing.
 
 The layout follows the [example-plugin](https://github.com/runelite/example-plugin) template:
 `runelite-plugin.properties` carries `build=standard` and a `version`, `runeLiteVersion` is
-`latest.release`, the licence is BSD 2-Clause, and there are no third party dependencies beyond
-what `runelite-client` already brings in, so no dependency verification hashes are needed.
+`latest.release`, the licence is BSD 2-Clause as the hub requires, and there are no third party
+dependencies beyond what `runelite-client` already brings in, so no dependency verification hashes
+are needed.
 
 Before submitting, confirm the `author` field in `runelite-plugin.properties` is the name you want
 published, and add a `support=` line if you want an issues link on the hub listing.
