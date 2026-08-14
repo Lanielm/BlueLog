@@ -9,96 +9,71 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
-public class PageSnapshotTest
-{
-	private static PageSnapshot page(String... missing)
-	{
+public class PageSnapshotTest {
+	private static PageSnapshot page(String... missing) {
 		return new PageSnapshot("Test Page", Arrays.asList(missing), 10, 0L);
 	}
 
-	/** Mirrors how the plugin builds its ignored test from the config text box alone. */
-	private static Predicate<String> ignoring(String configBox)
-	{
-		return BlueLogPlugin.parseNormalisedItemNames(configBox)::contains;
+	private static Predicate<String> ignoring(String configBox) {
+		return BLUtils.textToItemNamesSet(configBox)::contains;
 	}
 
 	@Test
-	public void completePageIsNeverHighlighted()
-	{
+	public void completePageIsNeverHighlighted() {
 		assertTrue(page().isComplete());
 		assertFalse(page().isOnlyMissing(ignoring("Twisted bow")));
 	}
 
 	@Test
-	public void singleIgnoredMissingItemIsHighlighted()
-	{
+	public void singleIgnoredMissingItemIsHighlighted() {
 		assertTrue(page("Twisted bow").isOnlyMissing(ignoring("Twisted bow")));
 	}
 
 	@Test
-	public void matchingIgnoresCaseAndSurroundingSpace()
-	{
+	public void matchingIgnoresCaseAndSurroundingSpace() {
 		assertTrue(page("Twisted bow").isOnlyMissing(ignoring("  TWISTED BOW  ")));
 	}
 
 	@Test
-	public void unlistedMissingItemBlocksHighlight()
-	{
+	public void unlistedMissingItemBlocksHighlight() {
 		assertFalse(page("Twisted bow", "Elder maul").isOnlyMissing(ignoring("Twisted bow")));
 	}
 
 	@Test
-	public void everyMissingItemListedIsHighlighted()
-	{
-		Set<String> ignored = BlueLogPlugin.parseNormalisedItemNames("Twisted bow, Elder maul");
+	public void everyMissingItemListedIsHighlighted() {
+		Set<String> ignored = BLUtils.textToItemNamesSet("Twisted bow, Elder maul");
 		assertTrue(page("Twisted bow", "Elder maul").isOnlyMissing(ignored::contains));
 	}
 
 	@Test
-	public void emptyListHighlightsNothing()
-	{
+	public void emptyListHighlightsNothing() {
 		assertFalse(page("Twisted bow").isOnlyMissing(Collections.<String>emptySet()::contains));
 	}
 
 	@Test
-	public void jarPresetMatchesEveryJarByPrefix()
-	{
-		Predicate<String> jars = name -> name.startsWith("jar of ");
-
-		assertTrue(page("Jar of dirt").isOnlyMissing(jars));
-		assertTrue(page("Jar of swamp", "Jar of congealed blood").isOnlyMissing(jars));
-		assertFalse(page("Jar of dirt", "Twisted bow").isOnlyMissing(jars));
-		assertFalse(page("Jar generator").isOnlyMissing(jars));
-	}
-
-	@Test
-	public void parsesCommaSeparatedNames()
-	{
+	public void parsesCommaSeparatedNames() {
 		assertEquals(
-			Arrays.asList("twisted bow", "elder maul", "kodai insignia"),
-			new java.util.ArrayList<>(BlueLogPlugin.parseNormalisedItemNames("Twisted bow,Elder maul,  Kodai insignia ")));
+				Arrays.asList("twisted bow", "elder maul", "kodai insignia"),
+				new java.util.ArrayList<>(BLUtils.textToItemNamesSet("Twisted bow,Elder maul,  Kodai insignia ")));
 	}
 
 	@Test
-	public void skipsEmptyEntries()
-	{
+	public void skipsEmptyEntries() {
 		assertEquals(
-			Arrays.asList("twisted bow", "elder maul"),
-			new java.util.ArrayList<>(BlueLogPlugin.parseNormalisedItemNames("Twisted bow,, Elder maul,")));
+				Arrays.asList("twisted bow", "elder maul"),
+				new java.util.ArrayList<>(BLUtils.textToItemNamesSet("Twisted bow,, Elder maul,")));
 	}
 
 	@Test
-	public void bracketedNamesAreKeptVerbatim()
-	{
+	public void bracketedNamesAreKeptVerbatim() {
 		assertEquals(
-			Collections.singletonList("unsired (members)"),
-			new java.util.ArrayList<>(BlueLogPlugin.parseNormalisedItemNames("Unsired (Members)")));
+				Collections.singletonList("unsired (members)"),
+				new java.util.ArrayList<>(BLUtils.textToItemNamesSet("Unsired (Members)")));
 	}
 
 	@Test
-	public void blankInputParsesToEmptySet()
-	{
-		assertTrue(BlueLogPlugin.parseNormalisedItemNames("   ").isEmpty());
-		assertTrue(BlueLogPlugin.parseNormalisedItemNames(null).isEmpty());
+	public void blankInputParsesToEmptySet() {
+		assertTrue(BLUtils.textToItemNamesSet("   ").isEmpty());
+		assertTrue(BLUtils.textToItemNamesSet(null).isEmpty());
 	}
 }

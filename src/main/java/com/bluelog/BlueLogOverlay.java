@@ -54,7 +54,7 @@ class BlueLogOverlay extends Overlay {
 				continue;
 			}
 
-			if (!plugin.isIgnoredItemSlot(slot)) {
+			if (!plugin.isItemIdIgnored(slot.getItemId())) {
 				continue;
 			}
 
