@@ -32,7 +32,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Text;
 
 @Slf4j
-@PluginDescriptor(name = "BlueLog", description = "Colours a clog section blue when only ignored items are missing", tags = {
+@PluginDescriptor(name = "BlueLog", description = "Colours a collection log section blue when the only items you are still missing are ones you have ignored, and marks those ignored items in the log", tags = {
 		"collection", "log", "clog" })
 public class BlueLogPlugin extends Plugin {
 	private static final String ALL_PETS_PAGE_NAME = "All Pets";
