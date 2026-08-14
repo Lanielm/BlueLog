@@ -10,11 +10,7 @@ import net.runelite.client.config.ConfigSection;
 public interface BlueLogConfig extends Config
 {
 	String GROUP = "bluelog";
-
-	/**
-	 * Kept as "allowedItems" through the rename to "Ignored items" so existing saved lists survive.
-	 */
-	String IGNORED_ITEMS_KEY = "allowedItems";
+	String IGNORED_ITEMS_KEY = "ignoredItems";
 
 	@ConfigSection(
 		name = "Items",
