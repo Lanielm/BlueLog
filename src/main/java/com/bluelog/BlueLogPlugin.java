@@ -14,6 +14,7 @@ import net.runelite.api.MenuEntry;
 import net.runelite.api.ScriptID;
 import net.runelite.api.events.MenuOpened;
 import net.runelite.api.events.ScriptPostFired;
+import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
@@ -225,6 +226,7 @@ public class BlueLogPlugin extends Plugin {
 
 	@Override
 	protected void shutDown() {
+		pageSnapshots.flush();
 		overlayManager.remove(overlay);
 		isIgnored = name -> false;
 		petNames = null;
@@ -233,12 +235,14 @@ public class BlueLogPlugin extends Plugin {
 
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
-		if (BlueLogConfig.GROUP.equals(event.getGroup())) {
-			clientThread.invokeLater(() -> {
-				rebuildIgnoredItemTest();
-				recolourSectionLists();
-			});
+		if (!BlueLogConfig.GROUP.equals(event.getGroup())) {
+			return;
 		}
+
+		clientThread.invokeLater(() -> {
+			rebuildIgnoredItemTest();
+			recolourSectionLists();
+		});
 	}
 
 	@Subscribe
@@ -278,6 +282,13 @@ public class BlueLogPlugin extends Plugin {
 	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event) {
 		pageSnapshots.load();
 		clientThread.invokeLater(this::recolourSectionLists);
+	}
+
+	@Subscribe
+	public void onWidgetClosed(WidgetClosed event) {
+		if (event.getGroupId() == COLLECTION_LOG_GROUP_ID) {
+			pageSnapshots.flush();
+		}
 	}
 
 	@Subscribe

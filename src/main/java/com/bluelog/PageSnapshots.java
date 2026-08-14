@@ -32,6 +32,8 @@ class PageSnapshots {
 
 	private final Map<String, PageSnapshot> byPageKey = new HashMap<>();
 
+	private boolean dirty;
+
 	@Inject
 	private PageSnapshots(Client client, ItemManager itemManager, ConfigManager configManager, Gson gson) {
 		this.client = client;
@@ -46,10 +48,12 @@ class PageSnapshots {
 
 	void clear() {
 		byPageKey.clear();
+		dirty = false;
 	}
 
 	void load() {
 		byPageKey.clear();
+		dirty = false;
 
 		String json = configManager.getRSProfileConfiguration(BlueLogConfig.GROUP, PAGE_CACHE_CONFIG_KEY);
 		if (json == null || json.isEmpty()) {
@@ -66,9 +70,14 @@ class PageSnapshots {
 		}
 	}
 
-	private void save() {
+	void flush() {
+		if (!dirty) {
+			return;
+		}
+
 		configManager.setRSProfileConfiguration(BlueLogConfig.GROUP, PAGE_CACHE_CONFIG_KEY,
 				gson.toJson(byPageKey, PAGE_CACHE_TYPE));
+		dirty = false;
 	}
 
 	private static boolean isSlotObtained(Widget slot) {
@@ -122,7 +131,7 @@ class PageSnapshots {
 		}
 
 		byPageKey.put(BLUtils.normalizeString(pageName), snapshot);
-		save();
+		dirty = true;
 		return true;
 	}
 
