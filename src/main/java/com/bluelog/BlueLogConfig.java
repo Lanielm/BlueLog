@@ -38,6 +38,11 @@ public interface BlueLogConfig extends Config {
 		return false;
 	}
 
+	@ConfigItem(keyName = "markerCorner", name = "Marker corner", description = "Corner of the item the ignored marker is drawn in", position = 4, section = itemsSection)
+	default MarkerCorner markerCorner() {
+		return MarkerCorner.TOP_RIGHT;
+	}
+
 	@ConfigItem(keyName = "highlightColour", name = "Highlight colour", description = "Colour used for a highlighted section", position = 11, section = coloursSection)
 	default Color highlightColour() {
 		return DEFAULT_HIGHLIGHT_COLOUR;

@@ -44,6 +44,7 @@ class BlueLogOverlay extends Overlay {
 		}
 
 		Color markerColour = config.highlightColour();
+		MarkerCorner corner = config.markerCorner();
 		Shape originalClip = graphics.getClip();
 
 		graphics.setClip(itemsContents.getBounds());
@@ -59,8 +60,10 @@ class BlueLogOverlay extends Overlay {
 			}
 
 			Rectangle bounds = slot.getBounds();
-			int x = bounds.x;
-			int y = bounds.y + bounds.height - MARKER_SIZE;
+			boolean right = corner == MarkerCorner.TOP_RIGHT || corner == MarkerCorner.BOTTOM_RIGHT;
+			boolean bottom = corner == MarkerCorner.BOTTOM_LEFT || corner == MarkerCorner.BOTTOM_RIGHT;
+			int x = right ? bounds.x + bounds.width - MARKER_SIZE : bounds.x;
+			int y = bottom ? bounds.y + bounds.height - MARKER_SIZE : bounds.y;
 
 			// black border
 			graphics.setColor(Color.BLACK);
