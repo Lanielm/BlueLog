@@ -43,7 +43,6 @@ class BlueLogOverlay extends Overlay {
 			return null;
 		}
 
-		Color markerColour = config.highlightColour();
 		MarkerCorner corner = config.markerCorner();
 		Shape originalClip = graphics.getClip();
 
@@ -70,7 +69,7 @@ class BlueLogOverlay extends Overlay {
 			graphics.fillOval(x, y, MARKER_SIZE, MARKER_SIZE);
 
 			// coloured interior
-			graphics.setColor(markerColour);
+			graphics.setColor(BlueLogPlugin.HIGHLIGHT_COLOUR);
 			graphics.fillOval(x + 1, y + 1, MARKER_SIZE - 2, MARKER_SIZE - 2);
 		}
 

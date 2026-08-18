@@ -42,6 +42,8 @@ public class BlueLogPlugin extends Plugin {
 	private static final String ALL_PETS_PAGE_NAME = "All Pets";
 	private static final String JAR_NAME_PREFIX = "jar of ";
 
+	static final Color HIGHLIGHT_COLOUR = new Color(0x33, 0x99, 0xFF);
+
 	private static final int COMPLETED_PAGE_COLOUR = 0x0dc10d;
 	private static final int RGB_MASK = 0xFFFFFF;
 	private static final int COLLECTION_LOG_GROUP_ID = InterfaceID.Collection.LIST >>> 16;
@@ -174,7 +176,7 @@ public class BlueLogPlugin extends Plugin {
 		}
 
 		return onlyMissingIgnored(itemIds, obtainedItems::contains, this::isItemIdIgnored)
-				? rgb(config.highlightColour())
+				? rgb(HIGHLIGHT_COLOUR)
 				: null;
 	}
 
