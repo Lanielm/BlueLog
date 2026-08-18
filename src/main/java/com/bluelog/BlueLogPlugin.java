@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -87,9 +88,6 @@ public class BlueLogPlugin extends Plugin {
 	private CollectionLogCache collectionLogCache;
 
 	@Inject
-	private PageSnapshots pageSnapshots;
-
-	@Inject
 	private BlueLogConfig config;
 
 	@Inject
@@ -100,6 +98,9 @@ public class BlueLogPlugin extends Plugin {
 
 	@Inject
 	private BlueLogOverlay overlay;
+
+	@Inject
+	private ObtainedItems obtainedItems;
 
 	private final Map<String, Recolouring> recolourings = new HashMap<>();
 
@@ -163,13 +164,35 @@ public class BlueLogPlugin extends Plugin {
 	}
 
 	private Integer desiredColour(String sectionName) {
-		PageSnapshot snapshot = pageSnapshots.get(sectionName);
-
-		if (snapshot == null) {
-			return config.highlightUnscanned() ? rgb(config.unscannedColour()) : null;
+		if (!obtainedItems.isLoaded()) {
+			return null;
 		}
 
-		return snapshot.isOnlyMissing(isIgnored) ? rgb(config.highlightColour()) : null;
+		int[] itemIds = collectionLogCache.pageItemIds(sectionName);
+		if (itemIds == null || itemIds.length == 0) {
+			return null;
+		}
+
+		return onlyMissingIgnored(itemIds, obtainedItems::contains, this::isItemIdIgnored)
+				? rgb(config.highlightColour())
+				: null;
+	}
+
+	static boolean onlyMissingIgnored(int[] itemIds, IntPredicate obtained, IntPredicate ignored) {
+		boolean anyMissing = false;
+
+		for (int itemId : itemIds) {
+			if (obtained.test(itemId)) {
+				continue;
+			}
+
+			anyMissing = true;
+			if (!ignored.test(itemId)) {
+				return false;
+			}
+		}
+
+		return anyMissing;
 	}
 
 	private void recolourSectionLists() {
@@ -263,18 +286,18 @@ public class BlueLogPlugin extends Plugin {
 	@Override
 	protected void startUp() {
 		overlayManager.add(overlay);
-		pageSnapshots.load();
+		obtainedItems.startUp(this::recolourSectionLists);
 		clientThread.invokeLater(this::rebuildIgnoredItemTest);
 	}
 
 	@Override
 	protected void shutDown() {
-		pageSnapshots.flush();
+		obtainedItems.shutDown();
 		overlayManager.remove(overlay);
 		isIgnored = name -> false;
 		petNames = null;
 		recolourings.clear();
-		pageSnapshots.clear();
+		collectionLogCache.clear();
 	}
 
 	@Subscribe
@@ -314,17 +337,11 @@ public class BlueLogPlugin extends Plugin {
 		}
 
 		recolourSectionLists();
-
-		clientThread.invokeLater(() -> {
-			if (pageSnapshots.captureOpenPage()) {
-				recolourSectionLists();
-			}
-		});
 	}
 
 	@Subscribe
 	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event) {
-		pageSnapshots.load();
+		obtainedItems.load();
 		clientThread.invokeLater(this::recolourSectionLists);
 	}
 
@@ -332,7 +349,6 @@ public class BlueLogPlugin extends Plugin {
 	public void onWidgetClosed(WidgetClosed event) {
 		if (event.getGroupId() == COLLECTION_LOG_GROUP_ID) {
 			recolourings.clear();
-			pageSnapshots.flush();
 		}
 	}
 
