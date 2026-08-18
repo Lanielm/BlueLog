@@ -11,3 +11,6 @@ out/
 .project
 .settings/
 bin/
+# Local agent/editor config
+CLAUDE.md
+.vscode/
