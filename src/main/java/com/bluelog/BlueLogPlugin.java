@@ -1,9 +1,12 @@
 package com.bluelog;
 
 import com.google.inject.Provides;
+import java.awt.Color;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import javax.inject.Inject;
@@ -39,7 +42,7 @@ public class BlueLogPlugin extends Plugin {
 	private static final String JAR_NAME_PREFIX = "jar of ";
 
 	private static final int COMPLETED_PAGE_COLOUR = 0x0dc10d;
-	private static final int INCOMPLETE_PAGE_COLOUR = 0xff981f;
+	private static final int RGB_MASK = 0xFFFFFF;
 	private static final int COLLECTION_LOG_GROUP_ID = InterfaceID.Collection.LIST >>> 16;
 
 	private static final int[] SECTION_LIST_WIDGET_IDS = {
@@ -49,6 +52,24 @@ public class BlueLogPlugin extends Plugin {
 			InterfaceID.Collection.MINIGAME_TEXT,
 			InterfaceID.Collection.OTHER_TEXT,
 	};
+
+	private static final class Recolouring {
+		private final int original;
+		private final int applied;
+
+		private Recolouring(int original, int applied) {
+			this.original = original;
+			this.applied = applied;
+		}
+	}
+
+	private static int rgb(int colour) {
+		return colour & RGB_MASK;
+	}
+
+	private static int rgb(Color colour) {
+		return colour.getRGB() & RGB_MASK;
+	}
 
 	@Inject
 	private Client client;
@@ -79,6 +100,8 @@ public class BlueLogPlugin extends Plugin {
 
 	@Inject
 	private BlueLogOverlay overlay;
+
+	private final Map<String, Recolouring> recolourings = new HashMap<>();
 
 	private Predicate<String> isIgnored = name -> false;
 
@@ -139,11 +162,17 @@ public class BlueLogPlugin extends Plugin {
 		return new Widget[] { sectionList };
 	}
 
-	private void recolourSectionLists() {
-		int highlightRGB = config.highlightColour().getRGB();
-		int unscannedRGB = config.unscannedColour().getRGB();
-		boolean shouldMarkUnscanned = config.highlightUnscanned();
+	private Integer desiredColour(String sectionName) {
+		PageSnapshot snapshot = pageSnapshots.get(sectionName);
 
+		if (snapshot == null) {
+			return config.highlightUnscanned() ? rgb(config.unscannedColour()) : null;
+		}
+
+		return snapshot.isOnlyMissing(isIgnored) ? rgb(config.highlightColour()) : null;
+	}
+
+	private void recolourSectionLists() {
 		for (int sectionListWidgetId : SECTION_LIST_WIDGET_IDS) {
 			Widget sectionList = client.getWidget(sectionListWidgetId);
 			if (sectionList == null) {
@@ -156,24 +185,38 @@ public class BlueLogPlugin extends Plugin {
 					continue;
 				}
 
-				if (sectionEntry.getTextColor() == COMPLETED_PAGE_COLOUR) {
-					continue;
-				}
-
-				PageSnapshot snapshot = pageSnapshots.get(sectionName);
-				int colour = INCOMPLETE_PAGE_COLOUR;
-
-				if (snapshot == null) {
-					if (shouldMarkUnscanned) {
-						colour = unscannedRGB;
-					}
-				} else if (snapshot.isOnlyMissing(isIgnored)) {
-					colour = highlightRGB;
-				}
-
-				sectionEntry.setTextColor(colour);
+				recolourSectionEntry(sectionEntry, sectionName);
 			}
 		}
+	}
+
+	private void recolourSectionEntry(Widget sectionEntry, String sectionName) {
+		String key = BLUtils.normalizeString(sectionName);
+		int currentColour = rgb(sectionEntry.getTextColor());
+		Recolouring recolouring = recolourings.get(key);
+
+		if (recolouring != null && currentColour != recolouring.applied) {
+			recolourings.remove(key);
+			recolouring = null;
+		}
+
+		if (currentColour == COMPLETED_PAGE_COLOUR) {
+			return;
+		}
+
+		Integer desired = desiredColour(sectionName);
+
+		if (desired == null) {
+			if (recolouring != null) {
+				sectionEntry.setTextColor(recolouring.original);
+				recolourings.remove(key);
+			}
+			return;
+		}
+
+		int original = recolouring == null ? currentColour : recolouring.original;
+		sectionEntry.setTextColor(desired);
+		recolourings.put(key, new Recolouring(original, desired));
 	}
 
 	private static boolean isCollectionLogSlot(Widget slot) {
@@ -230,6 +273,7 @@ public class BlueLogPlugin extends Plugin {
 		overlayManager.remove(overlay);
 		isIgnored = name -> false;
 		petNames = null;
+		recolourings.clear();
 		pageSnapshots.clear();
 	}
 
@@ -287,6 +331,7 @@ public class BlueLogPlugin extends Plugin {
 	@Subscribe
 	public void onWidgetClosed(WidgetClosed event) {
 		if (event.getGroupId() == COLLECTION_LOG_GROUP_ID) {
+			recolourings.clear();
 			pageSnapshots.flush();
 		}
 	}
