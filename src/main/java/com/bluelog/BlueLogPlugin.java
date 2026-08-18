@@ -249,9 +249,16 @@ public class BlueLogPlugin extends Plugin {
 				|| slot.getParentId() == InterfaceID.Collection.ITEMS_CONTENTS;
 	}
 
-	private void addIgnoreMenuEntry(String itemName) {
+	private void addIgnoreMenuEntry(int itemId) {
+		String itemName = getItemIdName(itemId);
 		boolean alreadyIgnored = BLUtils.textToItemNamesSet(config.ignoredItems())
 				.contains(BLUtils.normalizeString(itemName));
+
+		// Ignoring an item you already have changes nothing, so the option is only
+		// worth showing on an obtained item to undo an ignore made before you got it.
+		if (obtainedItems.contains(itemId) && !alreadyIgnored) {
+			return;
+		}
 
 		client.getMenu()
 				.createMenuEntry(-1)
@@ -322,7 +329,7 @@ public class BlueLogPlugin extends Plugin {
 				continue;
 			}
 
-			addIgnoreMenuEntry(getItemIdName(slot.getItemId()));
+			addIgnoreMenuEntry(slot.getItemId());
 			return;
 		}
 	}
